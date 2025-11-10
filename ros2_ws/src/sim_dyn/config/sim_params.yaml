@@ -4,7 +4,7 @@ dynamics_node:
     mass: 1.0  # kg
     hover_thrust: 0.5  # Normalized thrust for hover
     c0: 0.0  # Thrust model: T = mg*(c0 + c1*u)
-    c1: 1.0  # Linear thrust coefficient
+    c1: 2.0  # Linear thrust coefficient (2.0 so u=0.5 gives T=mg)
     kv_drag: 0.1  # Linear velocity drag coefficient
     gravity: 9.81  # m/s^2
 

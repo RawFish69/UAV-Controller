@@ -5,7 +5,14 @@
 namespace controllers_pid {
 
 PIDNode::PIDNode()
-    : Node("pid_controller"), has_attitude_(false), has_angular_velocity_(false) {
+    : Node("pid_controller"), has_attitude_(false), has_angular_velocity_(false), 
+      has_attitude_setpoint_(false), desired_thrust_(0.5) {
+  
+  // Set default desired attitude (hover)
+  desired_attitude_.w = 1.0;
+  desired_attitude_.x = 0.0;
+  desired_attitude_.y = 0.0;
+  desired_attitude_.z = 0.0;
   // Declare parameters
   this->declare_parameter<double>("control_rate", 100.0);
   this->declare_parameter<bool>("use_attitude_outer", true);
@@ -88,6 +95,15 @@ PIDNode::PIDNode()
       "/state/angular_velocity", 10,
       std::bind(&PIDNode::angularVelocityCallback, this, std::placeholders::_1));
 
+  // Subscribe to attitude setpoints (for manual IMU control)
+  sub_attitude_setpoint_ = this->create_subscription<common_msgs::msg::AttitudeThrust>(
+      "/cmd/attitude_thrust", 10,
+      [this](const common_msgs::msg::AttitudeThrust::SharedPtr msg) {
+        desired_attitude_ = msg->attitude;
+        desired_thrust_ = msg->thrust;
+        has_attitude_setpoint_ = true;
+      });
+
   // Create control timer
   control_rate_ = this->get_parameter("control_rate").as_double();
   auto period_ms = static_cast<int>(1000.0 / control_rate_);
@@ -138,7 +154,8 @@ void PIDNode::controlLoop() {
   if (use_attitude_outer_) {
     // Cascaded attitude + rate control
     Eigen::Vector4d attitude_setpoint;
-    attitude_setpoint << 1.0, 0.0, 0.0, 0.0;  // Hover: identity quaternion [w,x,y,z]
+    attitude_setpoint << desired_attitude_.w, desired_attitude_.x, 
+                         desired_attitude_.y, desired_attitude_.z;
 
     Eigen::Vector4d attitude_measured;
     attitude_measured << current_attitude_.w, current_attitude_.x, current_attitude_.y,
@@ -146,6 +163,11 @@ void PIDNode::controlLoop() {
 
     control_output =
         pid_core_->computeControlWithAttitude(attitude_setpoint, attitude_measured, rate_measured, dt);
+    
+    // Use commanded thrust (from manual controller or hover default)
+    if (has_attitude_setpoint_) {
+      control_output(3) = desired_thrust_;
+    }
   } else {
     // Rate-only control (setpoint = 0)
     Eigen::Vector3d rate_setpoint;

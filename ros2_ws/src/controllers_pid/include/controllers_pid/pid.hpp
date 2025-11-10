@@ -77,12 +77,16 @@ private:
   // Subscribers
   rclcpp::Subscription<geometry_msgs::msg::QuaternionStamped>::SharedPtr sub_attitude_;
   rclcpp::Subscription<geometry_msgs::msg::Vector3Stamped>::SharedPtr sub_angular_velocity_;
+  rclcpp::Subscription<common_msgs::msg::AttitudeThrust>::SharedPtr sub_attitude_setpoint_;
 
   // State
   bool has_attitude_;
   bool has_angular_velocity_;
   geometry_msgs::msg::Quaternion current_attitude_;
   geometry_msgs::msg::Vector3 current_angular_velocity_;
+  geometry_msgs::msg::Quaternion desired_attitude_;
+  float desired_thrust_;
+  bool has_attitude_setpoint_;
   rclcpp::Time last_control_time_;
 
   // Parameters
