@@ -1,0 +1,11 @@
+crsf_adapter_node:
+  ros__parameters:
+    transport: udp  # udp or serial
+    udp_host: "192.168.4.1"
+    udp_port: 9000
+    serial_port: "/dev/ttyUSB0"
+    baud: 921600
+    rate_hz: 150  # Transmission rate
+    failsafe_ms: 200  # Failsafe timeout
+    packer: txrx_packer  # Packet format (txrx_packer or custom)
+

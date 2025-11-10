@@ -1,0 +1,41 @@
+FROM osrf/ros:humble-desktop-full
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    python3-pip \
+    python3-colcon-common-extensions \
+    python3-rosdep \
+    libeigen3-dev \
+    clang-format \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python packages
+RUN pip3 install --upgrade pip && \
+    pip3 install \
+    flake8 \
+    autopep8 \
+    pytest \
+    numpy \
+    scipy
+
+# Create workspace
+WORKDIR /workspace
+COPY ros2_ws /workspace/ros2_ws
+
+# Initialize rosdep and install dependencies
+RUN rosdep update && \
+    rosdep install --from-paths ros2_ws/src --ignore-src -r -y
+
+# Build workspace
+RUN . /opt/ros/humble/setup.sh && \
+    cd ros2_ws && \
+    colcon build --symlink-install
+
+# Setup entrypoint
+RUN echo '#!/bin/bash\nset -e\nsource /opt/ros/humble/setup.bash\nsource /workspace/ros2_ws/install/setup.bash\nexec "$@"' > /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["bash"]
+

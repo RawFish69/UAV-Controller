@@ -1,0 +1,39 @@
+{
+  "name": "UAV CRSF LQR PID - ROS 2 Humble",
+  "dockerFile": "Dockerfile",
+  "context": "..",
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-azuretools.vscode-docker",
+        "redhat.vscode-yaml",
+        "streetsidesoftware.code-spell-checker"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/bin/python3",
+        "python.linting.enabled": true,
+        "python.linting.flake8Enabled": true,
+        "python.formatting.provider": "autopep8",
+        "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+        "cmake.configureOnOpen": false
+      }
+    }
+  },
+  "postCreateCommand": "sudo chown -R $(whoami) /workspace && cd /workspace/ros2_ws && rosdep update && rosdep install --from-paths src --ignore-src -r -y",
+  "remoteUser": "ros",
+  "features": {},
+  "mounts": [
+    "source=/dev,target=/dev,type=bind,consistency=cached"
+  ],
+  "runArgs": [
+    "--privileged",
+    "--network=host"
+  ]
+}
+
