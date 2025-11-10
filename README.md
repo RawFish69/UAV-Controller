@@ -125,20 +125,20 @@ C++ node implementing cascaded attitude + rate PID controller:
 
 Python node bridging ROS 2 to ESP32 TX/RX project via UDP or Serial:
 - **Pluggable packer API**: Customize packet format without changing node
-- **Default packer**: `txrx_packer` matches `../TX_RX/` format (struct `<ffff12f>`)
-- **Transport modes**: UDP (wireless ESP32-C3) or Serial (wired)
+- **Default packer**: `txrx_packer` sends DirectCommandPayload format (20 bytes: 4 floats + timestamp)
+- **Transport modes**: UDP (wireless) or Serial (wired to TX)
 - **Failsafe**: Sends safe idle packet if commands stale > `failsafe_ms`
 - **Rate control**: Configurable streaming rate (default 150 Hz)
 
 **Key parameters** (`crsf_params.yaml`):
 - `transport`: udp | serial
 - `udp_host`: 192.168.4.1, `udp_port`: 9000
-- `serial_port`: /dev/ttyUSB0, `baud`: 921600
+- `serial_port`: /dev/ttyUSB0, `baud`: 115200
 - `rate_hz`: 150, `failsafe_ms`: 200
 - `packer`: txrx_packer (or custom packer module)
 
-**Packer customization**:
-See `adapters_crsf/packers/base.py` for abstract interface. Implement `encode()` and `safe_idle()` methods to match your TX_RX firmware.
+**TX_RX Integration**:
+Your TX firmware needs modification to accept UDP/Serial input. See `TX_RX_INTEGRATION.md` for complete guide with example code.
 
 ### sim_dyn
 
@@ -213,35 +213,34 @@ docker run -it --rm uav_crsf_lqr_pid
 - `slew_rate_thrust`: 2.0–5.0 per second prevents sudden altitude changes
 - `slew_rate_yaw`: 3.0–10.0 rad/s prevents aggressive spins
 
-## Packer Customization for TX_RX Integration
+## TX_RX Hardware Integration
 
-The CRSF adapter uses a pluggable packer system to match your ESP32 firmware's packet format.
+The CRSF adapter sends **DirectCommandPayload** format (20 bytes) to your TX ESP32:
+- 4 floats: roll, pitch, yaw (-1 to 1), throttle (0 to 1)
+- 1 uint32: timestamp
 
-**Default packer** (`txrx_packer.py`):
-- Format: `<ffff12f` (little-endian floats)
-- Fields: roll, pitch, yaw, throttle, aux[0..11]
-- Range: [-1, 1] for sticks, [0, 1] for throttle
+**Your TX firmware needs modification** to accept these packets via UDP or Serial and call `CustomProtocol_SendDirectCommand()`.
 
-**Custom packer example**:
+See **`TX_RX_INTEGRATION.md`** for:
+- Complete integration guide
+- Example code for UDP server
+- Serial input parsing
+- Testing procedures
+- Troubleshooting tips
 
-```python
-# adapters_crsf/packers/my_packer.py
-from .base import PacketPacker
-import struct
+**Quick example** (add to TX firmware):
+```cpp
+WiFiUDP udp;
+udp.begin(9000);
 
-class MyPacker(PacketPacker):
-    def encode(self, rc_msg):
-        # Your custom format here
-        return struct.pack('<HHH', 
-            int((rc_msg.roll + 1) * 1000),
-            int((rc_msg.pitch + 1) * 1000),
-            int(rc_msg.throttle * 1000))
-    
-    def safe_idle(self):
-        return struct.pack('<HHH', 1000, 1000, 0)
+// In loop():
+if (udp.parsePacket() == 20) {
+  uint8_t buf[20];
+  udp.read(buf, 20);
+  float* f = (float*)buf;
+  CustomProtocol_SendDirectCommand(f[0], f[1], f[2], f[3]);
+}
 ```
-
-Then use: `packer:=my_packer` in launch arguments.
 
 ## Safety Checklist (Before Hardware Flight)
 
@@ -275,13 +274,15 @@ find ros2_ws/src -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i
 flake8 ros2_ws/src/adapters_crsf ros2_ws/src/sim_dyn
 ```
 
-### GitHub Actions
+### Manual Testing
 
-CI workflow automatically runs on push/PR:
-- colcon build (all packages)
-- C++ tests (LQR, PID)
-- Python import checks
-- Linters (ament, clang-format, flake8)
+Before pushing code, run these locally:
+```bash
+cd ros2_ws
+colcon build
+colcon test
+colcon test-result --verbose
+```
 
 ## Troubleshooting
 

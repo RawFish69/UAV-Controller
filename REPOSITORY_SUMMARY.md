@@ -118,11 +118,12 @@ Controllers (LQR/PID) → Safety Gate → Mode Switch:
 
 ### TX_RX Integration
 
-The `adapters_crsf` package integrates with your existing ESP32 TX_RX project:
-- Default packer matches `../TX_RX/` packet format (16 floats)
-- No modifications to TX_RX firmware needed
+The `adapters_crsf` package sends DirectCommandPayload format (20 bytes) to your TX:
+- Format: 4 floats (roll, pitch, yaw, throttle) + timestamp
+- **TX firmware needs modification**: Add UDP/Serial input handler
+- See `TX_RX_INTEGRATION.md` for complete guide with example code
 - UDP (WiFi) or Serial (USB) transport
-- Custom packers: inherit `PacketPacker`, implement `encode()` + `safe_idle()`
+- Custom packers available if you need different formats
 
 ### Next Steps
 

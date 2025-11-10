@@ -1,50 +1,56 @@
 """
-TX_RX packer: matches the format of the ../TX_RX/ ESP32 project.
+TX_RX packer: matches the DirectCommandPayload format from ../TX_RX/ ESP32 project.
 
-Default format: little-endian <ffff12f
-- 4 floats: roll, pitch, yaw, throttle
-- 12 floats: aux[0..11]
+Format matches protocol.h DirectCommandPayload:
+  struct DirectCommandPayload {
+    float roll;       // -1.0 to 1.0
+    float pitch;      // -1.0 to 1.0
+    float yaw;        // -1.0 to 1.0
+    float throttle;   // 0.0 to 1.0
+    uint32_t timestamp;
+  };
 
-Total: 16 floats * 4 bytes = 64 bytes
+Total: 4 floats + 1 uint32 = 20 bytes
+
+Note: Your TX firmware needs to be modified to accept UDP/Serial input.
+Add a UDP server or Serial parser that receives these packets and calls
+CustomProtocol_SendDirectCommand(roll, pitch, yaw, throttle).
 """
 
 import struct
+import time
 from .base import PacketPacker
 
 
 class TXRXPacker(PacketPacker):
-    """Packer for TX_RX ESP32 project format."""
+    """Packer for TX_RX ESP32 project DirectCommandPayload format."""
 
     def __init__(self):
-        # Format: 16 floats (roll, pitch, yaw, throttle, aux[0..11])
-        self.format = '<16f'
-        self.packet_size = struct.calcsize(self.format)
+        # Format: 4 floats + 1 uint32 (little-endian)
+        # <ffff = roll, pitch, yaw, throttle (floats)
+        # I = timestamp (uint32)
+        self.format = '<ffffI'
+        self.packet_size = struct.calcsize(self.format)  # 20 bytes
 
     def encode(self, rc_msg):
         """
-        Encode VirtualRC to TX_RX format.
+        Encode VirtualRC to TX_RX DirectCommandPayload format.
 
         Args:
-            rc_msg: VirtualRC message with roll, pitch, yaw, throttle, aux[12]
+            rc_msg: VirtualRC message with roll, pitch, yaw, throttle
 
         Returns:
-            bytes: 64-byte packet
+            bytes: 20-byte packet
         """
-        # Pack: roll, pitch, yaw, throttle, aux[0..11]
-        data = [
-            rc_msg.roll,
-            rc_msg.pitch,
-            rc_msg.yaw,
-            rc_msg.throttle,
-        ]
+        # Get timestamp in milliseconds
+        timestamp = int(time.time() * 1000) & 0xFFFFFFFF
         
-        # Add aux channels (ensure we have 12)
-        aux = list(rc_msg.aux) if hasattr(rc_msg, 'aux') else [0.0] * 12
-        while len(aux) < 12:
-            aux.append(0.0)
-        data.extend(aux[:12])
-
-        return struct.pack(self.format, *data)
+        return struct.pack(self.format,
+                          rc_msg.roll,
+                          rc_msg.pitch,
+                          rc_msg.yaw,
+                          rc_msg.throttle,
+                          timestamp)
 
     def safe_idle(self):
         """
@@ -53,13 +59,12 @@ class TXRXPacker(PacketPacker):
         Returns:
             bytes: Packet with zero throttle and centered controls
         """
-        data = [
-            0.0,  # roll
-            0.0,  # pitch
-            0.0,  # yaw
-            0.0,  # throttle (zero for safety)
-        ]
-        data.extend([0.0] * 12)  # aux channels (disarmed)
-
-        return struct.pack(self.format, *data)
+        timestamp = int(time.time() * 1000) & 0xFFFFFFFF
+        
+        return struct.pack(self.format,
+                          0.0,  # roll centered
+                          0.0,  # pitch centered
+                          0.0,  # yaw centered
+                          0.0,  # throttle zero
+                          timestamp)
 

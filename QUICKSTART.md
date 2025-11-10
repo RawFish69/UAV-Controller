@@ -37,10 +37,16 @@ You should see a quad hovering at 1m altitude in RViz.
 
 ## 3. Connect to Real Hardware
 
-### Make Sure TX_RX is Running
+### Modify Your TX Firmware First
 
-Your ESP32 TX_RX needs to be:
-- Connected to WiFi (192.168.4.1)
+Your ESP32 TX needs UDP or Serial input added. See `TX_RX_INTEGRATION.md` for the full guide with example code.
+
+Quick summary: Add a UDP server on port 9000 that receives 20-byte packets and calls `CustomProtocol_SendDirectCommand()`.
+
+### Once TX is Ready
+
+Your ESP32 TX should be:
+- Running in AP mode or connected to WiFi (IP: 192.168.4.1)
 - Listening on UDP port 9000
 - OR connected via USB (e.g., /dev/ttyUSB0)
 
