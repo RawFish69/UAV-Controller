@@ -9,7 +9,7 @@
 ## 1. Build It
 
 ```bash
-cd uav_crsf_lqr_pid
+cd UAV-Controller
 ./scripts/build.sh
 ```
 
@@ -193,8 +193,8 @@ class MyPacker(PacketPacker):
 ### Docker
 
 ```bash
-docker build -t uav_crsf_lqr_pid -f docker/Dockerfile.humble .
-docker run -it --rm --network=host uav_crsf_lqr_pid
+docker build -t uav-controller -f docker/Dockerfile.humble .
+docker run -it --rm --network=host uav-controller
 ```
 
 ## 8. Run Tests

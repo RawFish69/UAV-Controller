@@ -1,4 +1,4 @@
-# UAV CRSF LQR PID - Repository Summary
+# UAV-Controller - Repository Summary
 
 ## Complete Repository Structure
 

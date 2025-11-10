@@ -1,4 +1,4 @@
-# UAV CRSF LQR PID Controller
+# UAV-Controller
 
 A ROS 2 Humble setup for firmware-agnostic UAV control. Includes LQR and PID controllers, safety features, CRSF adapter for talking to your TX/RX hardware, and a simulator so you can test stuff before you actually fly.
 
@@ -173,8 +173,8 @@ source install/setup.bash
 ### Using Docker
 
 ```bash
-docker build -t uav_crsf_lqr_pid -f docker/Dockerfile.humble .
-docker run -it --rm uav_crsf_lqr_pid
+docker build -t uav-controller -f docker/Dockerfile.humble .
+docker run -it --rm uav-controller
 ```
 
 ### Native Build (Ubuntu 22.04 + ROS 2 Humble)

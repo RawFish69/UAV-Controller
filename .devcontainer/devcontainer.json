@@ -1,5 +1,5 @@
 {
-  "name": "UAV CRSF LQR PID - ROS 2 Humble",
+  "name": "UAV-Controller - ROS 2 Humble",
   "dockerFile": "Dockerfile",
   "context": "..",
   "workspaceFolder": "/workspace",

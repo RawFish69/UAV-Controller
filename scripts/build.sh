@@ -1,9 +1,9 @@
 #!/bin/bash
-# Build script for uav_crsf_lqr_pid workspace
+# Build script for UAV-Controller workspace
 
 set -e
 
-echo "=== Building UAV CRSF LQR PID Workspace ==="
+echo "=== Building UAV-Controller Workspace ==="
 
 # Navigate to workspace
 cd "$(dirname "$0")/../ros2_ws"
