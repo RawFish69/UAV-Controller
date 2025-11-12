@@ -1,8 +1,0 @@
-imu_protocol_receiver:
-  ros__parameters:
-    transport: udp  # udp or serial
-    udp_port: 8000  # Port to receive hand IMU data
-    serial_port: /dev/ttyUSB1
-    baud: 115200
-    timeout_ms: 500  # IMU data timeout
-

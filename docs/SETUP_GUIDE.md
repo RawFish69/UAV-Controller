@@ -1,8 +1,6 @@
 # Setup Guide
 
-## Quick Start - Simulation
-
-### Build
+## Build
 
 ```bash
 cd ros2_ws
@@ -10,50 +8,68 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
-### Run Autonomous Control
+## Run
+
+### PID Simulation
 
 ```bash
-# PID controller
+source ros2_ws/install/setup.bash
 ros2 launch sim_dyn sim_pid.launch.py
+```
 
-# Or LQR controller
+Quad hovers at 1m in RViz.
+
+### LQR Simulation
+
+```bash
+source ros2_ws/install/setup.bash
 ros2 launch sim_dyn sim_lqr.launch.py
 ```
 
-Should see quad hovering at 1m in RViz.
+## Debug
 
-### Run Manual IMU Control
-
-```bash
-# Launch stack
-ros2 launch manual_imu_controller imu_manual_sim.launch.py
-
-# In another terminal, send fake IMU data
-ros2 topic pub /imu/data sensor_msgs/Imu \
-  '{orientation: {w: 1.0, x: 0.0, y: 0.0, z: 0.0}}' -r 50
-
-# And throttle
-ros2 topic pub /manual/throttle std_msgs/Float32 "data: 0.5" -r 10
-```
-
-## Debugging
-
-### Check What's Running
+### Nodes
 
 ```bash
-ros2 node list  # See all nodes
-ros2 topic list # See all topics
-ros2 topic hz /cmd/body_rate_thrust  # Check rate
+ros2 node list
+
+# Should see:
+# /dynamics_node
+# /pid_controller (or /lqr_controller)
+# /safety_gate
+# /rviz2
 ```
 
-### Common Issues
+### Topics
 
-**Quad falling in sim**:
+```bash
+# Controller output
+ros2 topic echo /cmd/body_rate_thrust
+
+# After safety gate
+ros2 topic echo /cmd/final/body_rate_thrust
+
+# Simulator state
+ros2 topic echo /state/odom
+
+# Check rates
+ros2 topic hz /cmd/body_rate_thrust  # ~100 Hz
+ros2 topic hz /state/odom            # ~200 Hz
+```
+
+```bash
+# Run diagnostics
+./scripts/check_sim.sh
+```
+
+## Issues
+
+**Quad falling**:
 ```bash
 # Check thrust model
 ros2 param get /dynamics_node c1  # Should be 2.0
 
-# Rebuild if needed
+# If wrong, rebuild
 cd ros2_ws
 colcon build --packages-select sim_dyn
 source install/setup.bash
@@ -61,89 +77,36 @@ source install/setup.bash
 
 **Nodes not starting**:
 ```bash
-source ros2_ws/install/setup.bash  # Make sure you source!
+# Always source workspace!
+source ros2_ws/install/setup.bash
+
+# Check for build errors
+colcon build --event-handlers console_direct+
 ```
 
 **Oscillations**:
-Edit `ros2_ws/src/controllers_pid/config/pid_params.yaml`:
-- Reduce `kp` gains
-- Increase `kd` gains
-Rebuild: `colcon build --packages-select controllers_pid`
+- Edit `ros2_ws/src/controllers_pid/config/pid_params.yaml`
+- Reduce `kp` gains or increase `kd`
+- Rebuild: `colcon build --packages-select controllers_pid`
 
 ## Tuning
 
-### PID Tuning
+### PID
 
-1. Edit `ros2_ws/src/controllers_pid/config/pid_params.yaml`
-2. Change gains (start with kp)
-3. Rebuild: `colcon build --packages-select controllers_pid`
-4. Relaunch and test
+Edit `ros2_ws/src/controllers_pid/config/pid_params.yaml`, change gains, rebuild.
 
-### IMU Gesture Sensitivity
+### LQR
 
-Edit `ros2_ws/src/manual_imu_controller/config/imu_controller_params.yaml`:
+Edit `ros2_ws/src/controllers_lqr/config/lqr_params.yaml`, adjust K matrix, rebuild.
 
-```yaml
-max_tilt_deg: 25.0      # Reduce for less aggressive
-deadzone_deg: 8.0       # Increase for steadier
-roll_scale: 0.8         # Reduce for less sensitive
-pitch_scale: 0.8
-```
+### Safety
 
-Rebuild: `colcon build --packages-select manual_imu_controller`
-
-## Docker Usage
-
-### Build Image
-
-```bash
-docker build -t uav-controller -f docker/Dockerfile.humble .
-```
-
-### Run
-
-```bash
-docker run -it --rm --network=host uav-controller
-```
-
-### DevContainer (VS Code)
-
-1. Install Remote-Containers extension
-2. Open folder
-3. Click "Reopen in Container"
-4. Inside: `cd ros2_ws && colcon build`
+Edit `ros2_ws/src/safety_gate/config/safety_params.yaml` for limits.
 
 ## Testing
 
 ```bash
 cd ros2_ws
-
-# Run all tests
 colcon test
 colcon test-result --verbose
-
-# Specific package
-colcon test --packages-select controllers_pid
 ```
-
-## Monitoring Tools
-
-```bash
-# Topic rates
-ros2 topic hz /cmd/body_rate_thrust
-
-# Plot data
-ros2 run plotjuggler plotjuggler
-
-# Node graph
-ros2 run rqt_graph rqt_graph
-
-# Parameters
-ros2 param list /pid_controller
-ros2 param get /dynamics_node c1
-```
-
----
-
-For hardware setup, see `docs/HARDWARE.md`
-

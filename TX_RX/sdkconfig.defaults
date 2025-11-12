@@ -1,0 +1,11 @@
+# SDK config defaults to enable USB device (TinyUSB) and CDC console on ESP32-S3
+# These are reasonable defaults; if your SDK or framework uses different Kconfig names adjust accordingly.
+CONFIG_USB_ENABLED=y
+# Enable USB Serial (TinyUSB CDC) support
+CONFIG_TINYUSB_CDC_ENABLED=y
+# Make the console use USB Serial JTAG (so USB CDC is used for console)
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+# Disable UART console to prefer USB console (optional)
+CONFIG_ESP_CONSOLE_UART_NONE=y
+# Enable USB Peripheral (clock, etc.)
+CONFIG_USB_DEVICE_CDC_ENABLED=y
