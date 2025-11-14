@@ -8,6 +8,7 @@
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_BNO08x.h>
 #include <Adafruit_Sensor.h>
+#include "config.h"  // For IMUType enum
 
 /**
  * IMU Handler for Roll and Pitch Control
@@ -20,12 +21,6 @@
  * - MPU6050: Basic 6-axis IMU with manual angle calculation
  * - BNO085: Advanced 9-axis IMU with built-in sensor fusion (more accurate!)
  */
-
-// IMU Type Selection
-enum IMUType {
-  IMU_MPU6050 = 0,  // Basic 6-axis IMU
-  IMU_BNO085 = 1    // Advanced 9-axis IMU with sensor fusion
-};
 
 class IMUHandler {
 public:

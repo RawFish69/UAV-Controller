@@ -1,60 +1,28 @@
 #!/usr/bin/env python3
 """
-CRSF Live Dashboard - Simple real-time CRSF monitor
-Usage: python crsf_live.py COM3
+CRSF Serial Monitor - Simple real-time RC channel monitor
+Usage: python crsf_serial.py COM3
 """
 
 import serial
 import sys
 import time
+from protocols.crsf_decoder import CRSFDecoder
 
-# ANSI codes
+# ANSI codes for terminal UI
 CLEAR = '\033[2J\033[H'
 HOME = '\033[H'
 HIDE = '\033[?25l'
 SHOW = '\033[?25h'
 CLEAR_LINE = '\033[2K'
 
-def crc8(data):
-    """Calculate CRC8 DVB-S2"""
-    crc = 0
-    for byte in data:
-        crc ^= byte
-        for _ in range(8):
-            crc = ((crc << 1) ^ 0xD5) if (crc & 0x80) else (crc << 1)
-    return crc & 0xFF
+def to_percent(val, min_val=172, max_val=1811):
+    """Convert channel value to percentage"""
+    return ((val - min_val) / (max_val - min_val)) * 100.0
 
-def unpack_channels(payload):
-    """Unpack 16 channels from CRSF RC frame"""
-    if len(payload) < 22:
-        return [0] * 16
-    
-    ch = [0] * 16
-    ch[0]  = (payload[0] | payload[1] << 8) & 0x07FF
-    ch[1]  = (payload[1] >> 3 | payload[2] << 5) & 0x07FF
-    ch[2]  = (payload[2] >> 6 | payload[3] << 2 | payload[4] << 10) & 0x07FF
-    ch[3]  = (payload[4] >> 1 | payload[5] << 7) & 0x07FF
-    ch[4]  = (payload[5] >> 4 | payload[6] << 4) & 0x07FF
-    ch[5]  = (payload[6] >> 7 | payload[7] << 1 | payload[8] << 9) & 0x07FF
-    ch[6]  = (payload[8] >> 2 | payload[9] << 6) & 0x07FF
-    ch[7]  = (payload[9] >> 5 | payload[10] << 3) & 0x07FF
-    ch[8]  = (payload[11] | payload[12] << 8) & 0x07FF
-    ch[9]  = (payload[12] >> 3 | payload[13] << 5) & 0x07FF
-    ch[10] = (payload[13] >> 6 | payload[14] << 2 | payload[15] << 10) & 0x07FF
-    ch[11] = (payload[15] >> 1 | payload[16] << 7) & 0x07FF
-    ch[12] = (payload[16] >> 4 | payload[17] << 4) & 0x07FF
-    ch[13] = (payload[17] >> 7 | payload[18] << 1 | payload[19] << 9) & 0x07FF
-    ch[14] = (payload[19] >> 2 | payload[20] << 6) & 0x07FF
-    ch[15] = (payload[20] >> 5 | payload[21] << 3) & 0x07FF
-    return ch
-
-def to_percent(val):
-    """Convert CRSF value to percentage"""
-    return ((val - 172) / (1811 - 172)) * 100.0
-
-def bar(val, width=25):
+def bar(val, width=25, min_val=172, max_val=1811):
     """Create visual bar"""
-    pct = to_percent(val)
+    pct = to_percent(val, min_val, max_val)
     filled = int((pct / 100.0) * width)
     return ('█' * filled) + ('░' * (width - filled))
 
@@ -75,7 +43,7 @@ def display(ch, frames, rate, errors):
     print(HOME, end='')
     
     p("╔════════════════════════════════════════════════════════════════════════════╗")
-    p("║                       CRSF LIVE DASHBOARD                                  ║")
+    p("║                       CRSF SERIAL MONITOR                                  ║")
     p("╚════════════════════════════════════════════════════════════════════════════╝")
     p("")
     p(f"  Frames: {frames:<8}  Rate: {rate:6.1f} Hz  Errors: {errors}")
@@ -105,14 +73,15 @@ def display(ch, frames, rate, errors):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python crsf_live.py <PORT>")
-        print("Example: python crsf_live.py COM3")
+        print("Usage: python crsf_serial.py <PORT>")
+        print("Example: python crsf_serial.py COM3")
         sys.exit(1)
     
     port = sys.argv[1]
+    decoder = CRSFDecoder()
     
     try:
-        ser = serial.Serial(port, 420000, timeout=1)
+        ser = serial.Serial(port, decoder.baudrate, timeout=1)
         print(f"{HIDE}{CLEAR}Connecting to {port}...", flush=True)
         time.sleep(1)
         
@@ -125,37 +94,10 @@ def main():
         last_display = 0
         
         while True:
-            # Read sync byte
-            sync = ser.read(1)
-            if not sync or sync[0] not in [0x00, 0xC8, 0xEA, 0xEC]:
-                continue
+            result = decoder.decode(ser)
             
-            # Read length
-            length_byte = ser.read(1)
-            if not length_byte:
-                continue
-            length = length_byte[0]
-            
-            if length < 2 or length > 64:
-                continue
-            
-            # Read rest of frame
-            rest = ser.read(length)
-            if len(rest) != length:
-                continue
-            
-            frame = bytes([sync[0], length]) + rest
-            
-            # Validate CRC
-            calc_crc = crc8(frame[2:-1])
-            if calc_crc != frame[-1]:
-                error_count += 1
-                continue
-            
-            # Check if RC channels frame
-            if frame[2] == 0x16:  # RC channels
-                payload = frame[3:-1]
-                channels = unpack_channels(payload)
+            if result:
+                channels = result
                 frame_count += 1
                 
                 # Calculate rate
@@ -171,6 +113,8 @@ def main():
                         first = False
                     display(channels, frame_count, rate, error_count)
                     last_display = now
+            else:
+                error_count += 1
     
     except KeyboardInterrupt:
         print(f"\n{SHOW}\nStopped.")

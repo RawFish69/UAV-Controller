@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-Drone 3D Web Visualizer - Real-time 3D visualization in your browser
-Decodes CRSF packets and displays drone orientation via web interface.
-
+Universal Drone 3D Visualizer - Real-time 3D visualization in your browser
+Supports: CRSF, SBUS, iBus protocols with dynamic switching via web UI
 Usage: python drone_visualizer.py COM3
 Then open: http://localhost:5000
 """
@@ -12,16 +11,12 @@ import time
 import json
 import threading
 import serial
-from flask import Flask, render_template_string, jsonify
-
-# CRSF Constants
-CRSF_CHANNEL_MIN = 172
-CRSF_CHANNEL_MID = 992
-CRSF_CHANNEL_MAX = 1811
+from flask import Flask, render_template_string, jsonify, request
+from protocols import get_protocol, list_protocols, CRSFDecoder
 
 # Global state
 drone_state = {
-    'channels': [CRSF_CHANNEL_MID] * 16,
+    'channels': [992] * 16,
     'roll': 0,
     'pitch': 0,
     'yaw': 0,
@@ -30,119 +25,113 @@ drone_state = {
     'error_count': 0,
     'rate': 0,
     'connected': False,
-    'flight_mode': 'angle'  # 'angle' or 'acro'
+    'flight_mode': 'angle',
+    'protocol': 'CRSF'
 }
 
 serial_port = None
 serial_lock = threading.Lock()
+current_decoder = None
+port_name_global = None
+should_reconnect = False
 
-def crc8(data):
-    """Calculate CRC8 DVB-S2"""
-    crc = 0
-    for byte in data:
-        crc ^= byte
-        for _ in range(8):
-            crc = ((crc << 1) ^ 0xD5) if (crc & 0x80) else (crc << 1)
-    return crc & 0xFF
-
-def unpack_channels(payload):
-    """Unpack 16 channels from CRSF RC frame"""
-    if len(payload) < 22:
-        return [CRSF_CHANNEL_MID] * 16
-    
-    ch = [0] * 16
-    ch[0]  = (payload[0] | payload[1] << 8) & 0x07FF
-    ch[1]  = (payload[1] >> 3 | payload[2] << 5) & 0x07FF
-    ch[2]  = (payload[2] >> 6 | payload[3] << 2 | payload[4] << 10) & 0x07FF
-    ch[3]  = (payload[4] >> 1 | payload[5] << 7) & 0x07FF
-    ch[4]  = (payload[5] >> 4 | payload[6] << 4) & 0x07FF
-    ch[5]  = (payload[6] >> 7 | payload[7] << 1 | payload[8] << 9) & 0x07FF
-    ch[6]  = (payload[8] >> 2 | payload[9] << 6) & 0x07FF
-    ch[7]  = (payload[9] >> 5 | payload[10] << 3) & 0x07FF
-    ch[8]  = (payload[11] | payload[12] << 8) & 0x07FF
-    ch[9]  = (payload[12] >> 3 | payload[13] << 5) & 0x07FF
-    ch[10] = (payload[13] >> 6 | payload[14] << 2 | payload[15] << 10) & 0x07FF
-    ch[11] = (payload[15] >> 1 | payload[16] << 7) & 0x07FF
-    ch[12] = (payload[16] >> 4 | payload[17] << 4) & 0x07FF
-    ch[13] = (payload[17] >> 7 | payload[18] << 1 | payload[19] << 9) & 0x07FF
-    ch[14] = (payload[19] >> 2 | payload[20] << 6) & 0x07FF
-    ch[15] = (payload[20] >> 5 | payload[21] << 3) & 0x07FF
-    return ch
-
-def channel_to_angle(value, max_angle=45):
-    """Convert CRSF channel value to angle in degrees"""
-    normalized = (value - CRSF_CHANNEL_MID) / (CRSF_CHANNEL_MAX - CRSF_CHANNEL_MIN)
+def channel_to_angle(value, max_angle=45, ch_min=172, ch_max=1811, ch_mid=992):
+    """Convert channel value to angle in degrees"""
+    normalized = (value - ch_mid) / (ch_max - ch_min)
     return normalized * max_angle * 2
 
-def channel_to_normalized(value):
-    """Convert CRSF channel value to 0-1 range"""
-    return (value - CRSF_CHANNEL_MIN) / (CRSF_CHANNEL_MAX - CRSF_CHANNEL_MIN)
+def channel_to_normalized(value, ch_min=172, ch_max=1811):
+    """Convert channel value to 0-1 range"""
+    return max(0, min(1, (value - ch_min) / (ch_max - ch_min)))
 
 def serial_reader_thread(port_name):
-    """Background thread to read CRSF data from serial port"""
-    global serial_port, drone_state
+    """Background thread to read protocol data from serial port"""
+    global serial_port, drone_state, current_decoder, should_reconnect
+    
+    protocol_name = drone_state['protocol']
+    
+    # Get protocol decoder
+    protocol_class = get_protocol(protocol_name)
+    if not protocol_class:
+        print(f"✗ Unknown protocol: {protocol_name}")
+        return
+    
+    current_decoder = protocol_class()
+    config = current_decoder.get_config()
     
     try:
         with serial_lock:
-            serial_port = serial.Serial(port_name, 420000, timeout=0.1)
+            if serial_port:
+                serial_port.close()
+            serial_port = serial.Serial(port_name, config['baudrate'], timeout=0.1)
         drone_state['connected'] = True
-        print(f"✓ Connected to {port_name}")
+        print(f"✓ Connected to {port_name} ({config['name']} @ {config['baudrate']} baud)")
         
         last_time = time.time()
         
         while True:
+            # Check if protocol switch requested
+            if should_reconnect:
+                with serial_lock:
+                    if serial_port:
+                        serial_port.close()
+                    should_reconnect = False
+                print(f"↻ Switching to {drone_state['protocol']}...")
+                # Restart with new protocol
+                return serial_reader_thread(port_name)
+            
             try:
-                # Read sync byte
-                sync = serial_port.read(1)
-                if not sync or sync[0] not in [0x00, 0xC8, 0xEA, 0xEC]:
-                    continue
+                channels = current_decoder.decode(serial_port)
                 
-                # Read length
-                length_byte = serial_port.read(1)
-                if not length_byte:
-                    continue
-                length = length_byte[0]
-                
-                if length < 2 or length > 64:
-                    continue
-                
-                # Read rest of frame
-                rest = serial_port.read(length)
-                if len(rest) != length:
-                    continue
-                
-                frame = bytes([sync[0], length]) + rest
-                
-                # Validate CRC
-                calc_crc = crc8(frame[2:-1])
-                if calc_crc != frame[-1]:
-                    drone_state['error_count'] += 1
-                    continue
-                
-                # Check if RC channels frame
-                if frame[2] == 0x16:  # RC channels
-                    payload = frame[3:-1]
-                    channels = unpack_channels(payload)
-                    
+                if channels:
                     with serial_lock:
                         drone_state['channels'] = channels
                         
                         # Handle flight mode
                         if drone_state['flight_mode'] == 'angle':
                             # Angle mode: Direct angle control with limits
-                            drone_state['roll'] = channel_to_angle(channels[0], max_angle=45)
-                            drone_state['pitch'] = channel_to_angle(channels[1], max_angle=45)
+                            drone_state['roll'] = channel_to_angle(
+                                channels[0], max_angle=45, 
+                                ch_min=config['channel_min'],
+                                ch_max=config['channel_max'],
+                                ch_mid=config['channel_mid']
+                            )
+                            drone_state['pitch'] = channel_to_angle(
+                                channels[1], max_angle=45,
+                                ch_min=config['channel_min'],
+                                ch_max=config['channel_max'],
+                                ch_mid=config['channel_mid']
+                            )
                         else:  # acro mode
                             # Acro mode: Rate control, accumulate rotation
-                            roll_rate = channel_to_angle(channels[0], max_angle=180) * 0.02
-                            pitch_rate = channel_to_angle(channels[1], max_angle=180) * 0.02
+                            roll_rate = channel_to_angle(
+                                channels[0], max_angle=180,
+                                ch_min=config['channel_min'],
+                                ch_max=config['channel_max'],
+                                ch_mid=config['channel_mid']
+                            ) * 0.02
+                            pitch_rate = channel_to_angle(
+                                channels[1], max_angle=180,
+                                ch_min=config['channel_min'],
+                                ch_max=config['channel_max'],
+                                ch_mid=config['channel_mid']
+                            ) * 0.02
                             drone_state['roll'] += roll_rate
                             drone_state['pitch'] += pitch_rate
                         
                         # Yaw always accumulates (same in both modes)
-                        drone_state['yaw'] += channel_to_angle(channels[3], max_angle=180) * 0.02
+                        drone_state['yaw'] += channel_to_angle(
+                            channels[3], max_angle=180,
+                            ch_min=config['channel_min'],
+                            ch_max=config['channel_max'],
+                            ch_mid=config['channel_mid']
+                        ) * 0.02
                         
-                        drone_state['throttle'] = channel_to_normalized(channels[2])
+                        drone_state['throttle'] = channel_to_normalized(
+                            channels[2],
+                            ch_min=config['channel_min'],
+                            ch_max=config['channel_max']
+                        )
                         drone_state['frame_count'] += 1
                         
                         # Calculate rate
@@ -150,6 +139,8 @@ def serial_reader_thread(port_name):
                         if now - last_time > 0:
                             drone_state['rate'] = 1.0 / (now - last_time)
                         last_time = now
+                else:
+                    drone_state['error_count'] += 1
             
             except Exception as e:
                 print(f"Error reading serial: {e}")
@@ -188,12 +179,38 @@ def set_flight_mode(mode):
         return jsonify({'status': 'ok', 'mode': mode})
     return jsonify({'status': 'error', 'message': 'Invalid mode'}), 400
 
+@app.route('/api/set_protocol/<protocol>')
+def set_protocol(protocol):
+    """API endpoint to set protocol"""
+    global drone_state, current_decoder, should_reconnect
+    
+    if protocol in list_protocols():
+        with serial_lock:
+            drone_state['protocol'] = protocol
+            drone_state['connected'] = False
+            # Reset drone state for clean reconnection
+            drone_state['roll'] = 0
+            drone_state['pitch'] = 0
+            drone_state['yaw'] = 0
+            drone_state['throttle'] = 0
+            drone_state['channels'] = [992] * 16
+            drone_state['frame_count'] = 0
+            drone_state['error_count'] = 0
+            should_reconnect = True
+        return jsonify({'status': 'ok', 'protocol': protocol})
+    return jsonify({'status': 'error', 'message': 'Invalid protocol'}), 400
+
+@app.route('/api/protocols')
+def get_protocols():
+    """API endpoint to get available protocols"""
+    return jsonify({'protocols': list_protocols()})
+
 # Embedded HTML template with Three.js 3D visualization
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Drone 3D Visualizer</title>
+    <title>Universal Drone Visualizer</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
@@ -297,6 +314,15 @@ HTML_TEMPLATE = '''
             border-color: #ffd700;
             box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
         }
+        .protocol-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
         canvas { display: block; }
     </style>
 </head>
@@ -304,6 +330,47 @@ HTML_TEMPLATE = '''
     <div id="container">
         <div id="sidebar">
             <h1>Drone Visualizer</h1>
+            
+            <div class="section">
+                <h2>Protocol</h2>
+                <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+                    <button class="mode-btn active" id="protocol-CRSF" onclick="setProtocol('CRSF')" style="flex: 1; font-size: 12px;">CRSF</button>
+                    <button class="mode-btn" id="protocol-SBUS" onclick="setProtocol('SBUS')" style="flex: 1; font-size: 12px;">SBUS</button>
+                    <button class="mode-btn" id="protocol-iBus" onclick="setProtocol('iBus')" style="flex: 1; font-size: 12px;">iBus</button>
+                </div>
+                <div style="font-size: 11px; opacity: 0.7;">
+                    Select protocol to match your receiver
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>Connection</h2>
+                <div class="data-row">
+                    <span class="label">Status:</span>
+                    <span class="value">
+                        <span class="status" id="status"></span>
+                        <span id="status-text">Connecting...</span>
+                    </span>
+                </div>
+                <div class="data-row">
+                    <span class="label">Protocol:</span>
+                    <span class="value">
+                        <span class="protocol-badge" id="protocol">CRSF</span>
+                    </span>
+                </div>
+                <div class="data-row">
+                    <span class="label">Frame Rate:</span>
+                    <span class="value"><span id="rate">0</span> Hz</span>
+                </div>
+                <div class="data-row">
+                    <span class="label">Frames:</span>
+                    <span class="value" id="frames">0</span>
+                </div>
+                <div class="data-row">
+                    <span class="label">Errors:</span>
+                    <span class="value" id="errors">0</span>
+                </div>
+            </div>
             
             <div class="section">
                 <h2>Flight Mode</h2>
@@ -319,26 +386,6 @@ HTML_TEMPLATE = '''
                     <span id="mode-description">
                         Self-leveling, max ±45°
                     </span>
-                </div>
-            </div>
-            
-            <div class="section">
-                <h2>Connection</h2>
-                <div class="data-row">
-                    <span class="label">Status:</span>
-                    <span class="value"><span class="status" id="status"></span><span id="status-text">Connecting...</span></span>
-                </div>
-                <div class="data-row">
-                    <span class="label">Frame Rate:</span>
-                    <span class="value"><span id="rate">0</span> Hz</span>
-                </div>
-                <div class="data-row">
-                    <span class="label">Frames:</span>
-                    <span class="value" id="frames">0</span>
-                </div>
-                <div class="data-row">
-                    <span class="label">Errors:</span>
-                    <span class="value" id="errors">0</span>
                 </div>
             </div>
             
@@ -378,72 +425,16 @@ HTML_TEMPLATE = '''
             </div>
             
             <div class="section">
-                <h2>CRSF Channels (All 16)</h2>
+                <h2>RC Channels</h2>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 12px;">
-                    <div class="data-row" style="margin: 0;">
-                        <span class="label">Ch1:</span>
-                        <span class="value" id="ch1">992</span>
-                    </div>
-                    <div class="data-row" style="margin: 0;">
-                        <span class="label">Ch2:</span>
-                        <span class="value" id="ch2">992</span>
-                    </div>
-                    <div class="data-row" style="margin: 0;">
-                        <span class="label">Ch3:</span>
-                        <span class="value" id="ch3">172</span>
-                    </div>
-                    <div class="data-row" style="margin: 0;">
-                        <span class="label">Ch4:</span>
-                        <span class="value" id="ch4">992</span>
-                    </div>
-                    <div class="data-row" style="margin: 0;">
-                        <span class="label">Ch5:</span>
-                        <span class="value" id="ch5">992</span>
-                    </div>
-                    <div class="data-row" style="margin: 0;">
-                        <span class="label">Ch6:</span>
-                        <span class="value" id="ch6">992</span>
-                    </div>
-                    <div class="data-row" style="margin: 0;">
-                        <span class="label">Ch7:</span>
-                        <span class="value" id="ch7">992</span>
-                    </div>
-                    <div class="data-row" style="margin: 0;">
-                        <span class="label">Ch8:</span>
-                        <span class="value" id="ch8">992</span>
-                    </div>
-                    <div class="data-row" style="margin: 0;">
-                        <span class="label">Ch9:</span>
-                        <span class="value" id="ch9">992</span>
-                    </div>
-                    <div class="data-row" style="margin: 0;">
-                        <span class="label">Ch10:</span>
-                        <span class="value" id="ch10">992</span>
-                    </div>
-                    <div class="data-row" style="margin: 0;">
-                        <span class="label">Ch11:</span>
-                        <span class="value" id="ch11">992</span>
-                    </div>
-                    <div class="data-row" style="margin: 0;">
-                        <span class="label">Ch12:</span>
-                        <span class="value" id="ch12">992</span>
-                    </div>
-                    <div class="data-row" style="margin: 0;">
-                        <span class="label">Ch13:</span>
-                        <span class="value" id="ch13">992</span>
-                    </div>
-                    <div class="data-row" style="margin: 0;">
-                        <span class="label">Ch14:</span>
-                        <span class="value" id="ch14">992</span>
-                    </div>
-                    <div class="data-row" style="margin: 0;">
-                        <span class="label">Ch15:</span>
-                        <span class="value" id="ch15">992</span>
-                    </div>
-                    <div class="data-row" style="margin: 0;">
-                        <span class="label">Ch16:</span>
-                        <span class="value" id="ch16">992</span>
-                    </div>
+                    <div class="data-row" style="margin: 0;"><span class="label">Ch1:</span><span class="value" id="ch1">992</span></div>
+                    <div class="data-row" style="margin: 0;"><span class="label">Ch2:</span><span class="value" id="ch2">992</span></div>
+                    <div class="data-row" style="margin: 0;"><span class="label">Ch3:</span><span class="value" id="ch3">172</span></div>
+                    <div class="data-row" style="margin: 0;"><span class="label">Ch4:</span><span class="value" id="ch4">992</span></div>
+                    <div class="data-row" style="margin: 0;"><span class="label">Ch5:</span><span class="value" id="ch5">992</span></div>
+                    <div class="data-row" style="margin: 0;"><span class="label">Ch6:</span><span class="value" id="ch6">992</span></div>
+                    <div class="data-row" style="margin: 0;"><span class="label">Ch7:</span><span class="value" id="ch7">992</span></div>
+                    <div class="data-row" style="margin: 0;"><span class="label">Ch8:</span><span class="value" id="ch8">992</span></div>
                 </div>
             </div>
         </div>
@@ -492,44 +483,38 @@ HTML_TEMPLATE = '''
         const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x222222);
         scene.add(gridHelper);
         
-        // Drone group
+        // Drone (quadcopter X configuration)
         const drone = new THREE.Group();
         
-        // Drone body (center) - flat in X-Z plane
+        // Body (center)
         const bodyGeometry = new THREE.BoxGeometry(0.6, 0.2, 0.6);
         const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
         const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
         body.castShadow = true;
         drone.add(body);
         
-        // Arms and motors - X configuration (45 degree angles)
-        // Coordinate system: +Z is forward, +X is right, +Y is up
+        // Arms and motors - X configuration
         const armMaterial = new THREE.MeshPhongMaterial({ color: 0x222222 });
-        const motorColors = [0xff0000, 0xff0000, 0x0066ff, 0x0066ff]; // Front motors red, back blue
+        const motorColors = [0xff0000, 0xff0000, 0x0066ff, 0x0066ff];
         const armLength = 0.85;
         const positions = [
-            [armLength, 0, armLength],      // Front-Right (RED) - forward and right
-            [-armLength, 0, armLength],     // Front-Left (RED) - forward and left
-            [armLength, 0, -armLength],     // Back-Right (BLUE) - back and right
-            [-armLength, 0, -armLength]     // Back-Left (BLUE) - back and left
+            [armLength, 0, armLength],   // Front-Right (RED)
+            [-armLength, 0, armLength],  // Front-Left (RED)
+            [armLength, 0, -armLength],  // Back-Right (BLUE)
+            [-armLength, 0, -armLength]  // Back-Left (BLUE)
         ];
         
         positions.forEach((pos, i) => {
-            // Arm - rotated at 45 degree angle
+            // Arm
             const armGeometry = new THREE.CylinderGeometry(0.05, 0.05, 1.2, 8);
             const arm = new THREE.Mesh(armGeometry, armMaterial);
-            arm.rotation.z = Math.PI / 2;  // Make horizontal
-            
-            // Calculate angle for X configuration
-            const angle = Math.atan2(pos[0], pos[2]);  // Fixed: X and Z swapped for correct orientation
-            arm.rotation.y = angle;
-            
-            // Position arm between center and motor
+            arm.rotation.z = Math.PI / 2;
+            arm.rotation.y = Math.atan2(pos[0], pos[2]);
             arm.position.set(pos[0] * 0.5, 0, pos[2] * 0.5);
             arm.castShadow = true;
             drone.add(arm);
             
-            // Motor (cylinder lying flat)
+            // Motor
             const motorGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.15, 16);
             const motorMaterial = new THREE.MeshPhongMaterial({ color: motorColors[i] });
             const motor = new THREE.Mesh(motorGeometry, motorMaterial);
@@ -537,7 +522,7 @@ HTML_TEMPLATE = '''
             motor.castShadow = true;
             drone.add(motor);
             
-            // Propeller (flat in X-Z plane)
+            // Propeller
             const propGeometry = new THREE.BoxGeometry(0.8, 0.02, 0.05);
             const propMaterial = new THREE.MeshPhongMaterial({ 
                 color: 0xcccccc,
@@ -547,21 +532,10 @@ HTML_TEMPLATE = '''
             const prop = new THREE.Mesh(propGeometry, propMaterial);
             prop.position.set(pos[0], 0.1, pos[2]);
             drone.add(prop);
-        });
-        
-        // Front indicator (red cone pointing forward along +Z axis)
-        const noseGeometry = new THREE.ConeGeometry(0.2, 0.5, 8);
-        const noseMaterial = new THREE.MeshPhongMaterial({ color: 0xff0000, emissive: 0x440000 });
-        const nose = new THREE.Mesh(noseGeometry, noseMaterial);
-        nose.rotation.x = -Math.PI / 2;  // Point along +Z axis (forward)
-        nose.position.set(0, 0, 1.3);
-        nose.castShadow = true;
-        drone.add(nose);
-        
-        // Add LED strips on arms for better visibility
-        positions.forEach((pos, i) => {
+            
+            // LED
             const ledGeometry = new THREE.SphereGeometry(0.08, 8, 8);
-            const ledColor = i < 2 ? 0xff0000 : 0x00ff00; // Front red, back green
+            const ledColor = i < 2 ? 0xff0000 : 0x00ff00;
             const ledMaterial = new THREE.MeshBasicMaterial({ 
                 color: ledColor,
                 transparent: true,
@@ -571,6 +545,15 @@ HTML_TEMPLATE = '''
             led.position.set(pos[0] * 0.7, 0, pos[2] * 0.7);
             drone.add(led);
         });
+        
+        // Front indicator (red cone)
+        const noseGeometry = new THREE.ConeGeometry(0.2, 0.5, 8);
+        const noseMaterial = new THREE.MeshPhongMaterial({ color: 0xff0000, emissive: 0x440000 });
+        const nose = new THREE.Mesh(noseGeometry, noseMaterial);
+        nose.rotation.x = -Math.PI / 2;
+        nose.position.set(0, 0, 1.3);
+        nose.castShadow = true;
+        drone.add(nose);
         
         drone.position.y = 2;
         scene.add(drone);
@@ -592,7 +575,7 @@ HTML_TEMPLATE = '''
                 const deltaY = e.clientY - previousMousePosition.y;
                 
                 cameraAngle.theta += deltaX * 0.01;
-                cameraAngle.phi -= deltaY * 0.01;  // Flipped for intuitive up/down
+                cameraAngle.phi -= deltaY * 0.01;
                 cameraAngle.phi = Math.max(0.1, Math.min(Math.PI - 0.1, cameraAngle.phi));
                 
                 previousMousePosition = { x: e.clientX, y: e.clientY };
@@ -608,12 +591,38 @@ HTML_TEMPLATE = '''
             cameraDistance = Math.max(2, Math.min(15, cameraDistance));
         });
         
-        // Window resize
         window.addEventListener('resize', () => {
             camera.aspect = container.clientWidth / container.clientHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(container.clientWidth, container.clientHeight);
         });
+        
+        // Protocol control
+        function setProtocol(protocol) {
+            fetch('/api/set_protocol/' + protocol)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'ok') {
+                        // Update UI
+                        ['CRSF', 'SBUS', 'iBus'].forEach(p => {
+                            document.getElementById('protocol-' + p).classList.remove('active');
+                        });
+                        document.getElementById('protocol-' + protocol).classList.add('active');
+                        
+                        // Reset drone orientation for clean reconnection
+                        droneState.roll = 0;
+                        droneState.pitch = 0;
+                        droneState.yaw = 0;
+                        droneState.throttle = 0;
+                        droneState.frame_count = 0;
+                        droneState.error_count = 0;
+                        
+                        // Show reconnecting status
+                        document.getElementById('status-text').textContent = 'Reconnecting...';
+                    }
+                })
+                .catch(err => console.error('Error setting protocol:', err));
+        }
         
         // Flight mode control
         function setFlightMode(mode) {
@@ -621,12 +630,10 @@ HTML_TEMPLATE = '''
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'ok') {
-                        // Update UI
                         document.getElementById('angle-btn').classList.remove('active');
                         document.getElementById('acro-btn').classList.remove('active');
                         document.getElementById(mode + '-btn').classList.add('active');
                         
-                        // Update description
                         const desc = mode === 'angle' 
                             ? 'Self-leveling, max ±45°'
                             : 'Rate mode, full 360° rotation';
@@ -636,29 +643,49 @@ HTML_TEMPLATE = '''
                 .catch(err => console.error('Error setting mode:', err));
         }
         
-        // Update drone state from server
+        // Update drone state
         let droneState = {
-            roll: 0,
-            pitch: 0,
-            yaw: 0,
-            throttle: 0,
+            roll: 0, pitch: 0, yaw: 0, throttle: 0,
             channels: [992, 992, 172, 992],
-            rate: 0,
-            frame_count: 0,
-            error_count: 0,
-            connected: false,
-            flight_mode: 'angle'
+            rate: 0, frame_count: 0, error_count: 0,
+            connected: false, flight_mode: 'angle', protocol: 'CRSF'
         };
+        
+        let lastProtocol = 'CRSF';
+        let reconnectCount = 0;
         
         function updateDroneState() {
             fetch('/api/drone')
                 .then(response => response.json())
                 .then(data => {
+                    // Check if protocol changed (reconnection happened)
+                    if (data.protocol !== lastProtocol) {
+                        lastProtocol = data.protocol;
+                        reconnectCount++;
+                        // Force state update after reconnection
+                        if (data.connected) {
+                            console.log('Protocol switched to ' + data.protocol);
+                        }
+                    }
+                    
                     droneState = data;
                     
                     // Update UI
                     document.getElementById('status').className = 'status ' + (data.connected ? 'connected' : 'disconnected');
                     document.getElementById('status-text').textContent = data.connected ? 'Connected' : 'Disconnected';
+                    document.getElementById('protocol').textContent = data.protocol || 'CRSF';
+                    
+                    // Update protocol buttons
+                    ['CRSF', 'SBUS', 'iBus'].forEach(p => {
+                        const btn = document.getElementById('protocol-' + p);
+                        if (btn) {
+                            if (p === data.protocol) {
+                                btn.classList.add('active');
+                            } else {
+                                btn.classList.remove('active');
+                            }
+                        }
+                    });
                     document.getElementById('rate').textContent = data.rate.toFixed(1);
                     document.getElementById('frames').textContent = data.frame_count;
                     document.getElementById('errors').textContent = data.error_count;
@@ -668,8 +695,8 @@ HTML_TEMPLATE = '''
                     document.getElementById('yaw').textContent = data.yaw.toFixed(1);
                     document.getElementById('throttle').textContent = (data.throttle * 100).toFixed(0);
                     
-                    // Update all 16 channels
-                    for (let i = 0; i < 16; i++) {
+                    // Update channels
+                    for (let i = 0; i < 8; i++) {
                         document.getElementById('ch' + (i + 1)).textContent = data.channels[i];
                     }
                     
@@ -682,7 +709,7 @@ HTML_TEMPLATE = '''
                     document.getElementById('pitch-bar').style.width = pitchPct + '%';
                     document.getElementById('throttle-bar').style.width = throttlePct + '%';
                 })
-                .catch(err => console.error('Error fetching drone state:', err));
+                .catch(err => console.error('Error:', err));
         }
         
         setInterval(updateDroneState, 50); // 20 Hz
@@ -691,7 +718,7 @@ HTML_TEMPLATE = '''
         function animate() {
             requestAnimationFrame(animate);
             
-            // Update camera position
+            // Update camera
             camera.position.x = cameraDistance * Math.sin(cameraAngle.phi) * Math.cos(cameraAngle.theta);
             camera.position.y = cameraDistance * Math.cos(cameraAngle.phi);
             camera.position.z = cameraDistance * Math.sin(cameraAngle.phi) * Math.sin(cameraAngle.theta);
@@ -717,8 +744,9 @@ HTML_TEMPLATE = '''
 
 def main():
     if len(sys.argv) < 2:
+        print()
         print("╔══════════════════════════════════════════════════════════╗")
-        print("║           Drone 3D Web Visualizer v1.0                   ║")
+        print("║        Universal Drone 3D Visualizer v2.0               ║")
         print("╚══════════════════════════════════════════════════════════╝")
         print()
         print("Usage: python drone_visualizer.py <PORT>")
@@ -728,29 +756,38 @@ def main():
         print("  python drone_visualizer.py /dev/ttyUSB0")
         print()
         print("Then open: http://localhost:5000")
+        print("Switch protocols in the web UI!")
         print()
         sys.exit(1)
     
-    port_name = sys.argv[1]
+    port = sys.argv[1]
+    global port_name_global
+    port_name_global = port
     
     print()
     print("╔══════════════════════════════════════════════════════════╗")
-    print("║           Drone 3D Web Visualizer v1.0                   ║")
+    print("║        Universal Drone 3D Visualizer v2.0               ║")
     print("╚══════════════════════════════════════════════════════════╝")
     print()
-    print(f"⚡ Serial Port: {port_name}")
+    print(f"⚡ Serial Port: {port}")
+    print(f"📡 Protocol: {drone_state['protocol']} (switchable in web UI)")
     
     # Start serial reader thread
-    reader_thread = threading.Thread(target=serial_reader_thread, args=(port_name,), daemon=True)
+    reader_thread = threading.Thread(
+        target=serial_reader_thread, 
+        args=(port,), 
+        daemon=True
+    )
     reader_thread.start()
     
     time.sleep(1)
     
-    print("🌐 Web Server: http://localhost:5000")
+    print(f"🌐 Web Server: http://localhost:5000")
     print()
     print("╔══════════════════════════════════════════════════════════╗")
-    print("║  → Open your browser to http://localhost:5000            ║")
-    print("║  → Switch between ANGLE and ACRO modes                   ║")
+    print("║  → Open: http://localhost:5000                           ║")
+    print("║  → Switch protocols in web UI (CRSF/SBUS/iBus)          ║")
+    print("║  → Switch ANGLE/ACRO flight modes                        ║")
     print("║  → Press Ctrl+C to stop                                  ║")
     print("╚══════════════════════════════════════════════════════════╝")
     print()
@@ -762,4 +799,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

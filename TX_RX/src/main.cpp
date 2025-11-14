@@ -2,6 +2,7 @@
 // Use BUILD_TX or BUILD_RX build flag to select mode
 
 #include <Arduino.h>
+#include "config.h"  // Unified configuration file
 #include "protocol.h"
 
 #ifdef BUILD_TX
@@ -18,24 +19,7 @@
 // ============================================================
 // TRANSMITTER (TX) CODE
 // ============================================================
-
-// TX Configuration
-#define RC_SEND_FREQUENCY_HZ 100  // Options: 50, 100, 150, 250, 500 Hz
-#define BENCH_TEST_MODE false     // Set to false to use IMU+Joystick input
-#define USE_IMU_JOYSTICK_INPUT true  // Set to true to use IMU (roll/pitch) + Joystick (throttle/yaw)
-
-// IMU Configuration
-// Currently Support types: IMU_MPU6050, IMU_BNO085
-#define IMU_TYPE IMU_BNO085       // Options: IMU_MPU6050 or IMU_BNO085
-#define IMU_SDA_PIN 4             // I2C SDA pin
-#define IMU_SCL_PIN 5             // I2C SCL pin
-#define ROLL_SENSITIVITY 45.0     // Degrees of tilt for full stick deflection
-#define PITCH_SENSITIVITY 45.0    // Degrees of tilt for full stick deflection
-
-// Joystick Configuration (Analog pins)
-#define JOYSTICK_THROTTLE_PIN 0   // Analog pin for throttle (up/down)
-#define JOYSTICK_YAW_PIN 1        // Analog pin for yaw (left/right)
-#define JOYSTICK_BUTTON_PIN 6     // Digital pin for joystick button (SW pin, controls AUX1)
+// All TX configuration moved to config.h
 
 // Control handlers
 IMUHandler imu;
@@ -70,8 +54,6 @@ unsigned long lastStatsMs = 0;
 unsigned long lastTxErrorMs = 0;
 
 const unsigned long RC_SEND_INTERVAL = 1000 / RC_SEND_FREQUENCY_HZ;  // Auto-calculated from frequency
-const unsigned long HEARTBEAT_INTERVAL = 500;   // 2 Hz (500ms)
-const unsigned long STATS_INTERVAL = 1000;      // 1 Hz (every second)
 const unsigned long ERROR_PRINT_INTERVAL = 1000; // Max 1 error per second
 
 void setup() {
@@ -359,37 +341,20 @@ void loop() {
 // ============================================================
 // RECEIVER (RX) CODE
 // ============================================================
+// All RX configuration moved to config.h
 
-#include "crsf_bridge.h"
+#include "universal_bridge.h"
 
-// CRSF Bridge instance
-CRSFBridge crsfBridge;
-
-// RX Configuration
-// Pin definitions for CRSF output (M5 Stamp S3)
-// Note: GPIO43/44 are USB pins, can't be used for UART
-#define CRSF_TX_PIN 21 
-#define CRSF_RX_PIN 20   
-
-// LED Status Indicator
-#define LED_PIN 8           // Status LED pin (Green LED recommended)
-#define LED_BLINK_RATE 500  // Blink interval in ms when no signal
-
-// CRSF Output Configuration
-// NOTE: Set to false for USB Serial debugging, true for flight
-#define ENABLE_CRSF_OUTPUT true  // true = CRSF enabled (no debug), false = CRSF disabled (full debug)
-#define CRSF_OUTPUT_FREQUENCY_HZ 100  // Options: 50, 100, 150, 250, 500 Hz (should match TX)
+// Universal protocol bridge (handles all protocols)
+UniversalBridge* protocolBridge = nullptr;
 
 // Timing
 unsigned long lastTelemetrySendMs = 0;
 unsigned long lastStatsMs = 0;
 unsigned long lastRxErrorMs = 0;
-unsigned long lastCrsfUpdateMs = 0;
+unsigned long lastProtocolUpdateMs = 0;
 unsigned long lastLedToggleMs = 0;
 
-const unsigned long CRSF_OUTPUT_INTERVAL = 1000 / CRSF_OUTPUT_FREQUENCY_HZ;  // Auto-calculated from frequency
-const unsigned long TELEMETRY_SEND_INTERVAL = 100;  // 10 Hz (100ms)
-const unsigned long STATS_INTERVAL = 1000;          // 1 Hz (every second, same as TX)
 const unsigned long ERROR_PRINT_INTERVAL = 1000;    // Max 1 error per second
 
 // LED state
@@ -410,17 +375,15 @@ void setup() {
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);  // Start with LED off
   
-#if !ENABLE_CRSF_OUTPUT
-  // Debug mode - print startup messages
+#if !ENABLE_DEBUG_OUTPUT
   Serial.println("\n\n=================================");
   Serial.println("Custom Protocol Receiver (RX)");
-  Serial.println("=================================");
-  Serial.println("DEBUG MODE - CRSF Output Disabled\n");
+  Serial.println("=================================\n");
 #endif
   
   // Initialize protocol (RX mode, will auto-pair with any TX)
   if (!CustomProtocol_Init(false, nullptr)) {
-#if !ENABLE_CRSF_OUTPUT
+#if !ENABLE_DEBUG_OUTPUT
     Serial.println("[RX] Protocol init failed!");
 #endif
     while (1) {
@@ -428,22 +391,31 @@ void setup() {
     }
   }
   
-#if !ENABLE_CRSF_OUTPUT
+#if !ENABLE_DEBUG_OUTPUT
   Serial.println("[RX] Protocol initialized successfully");
   Serial.flush();
 #endif
   delay(200);
   
-#if ENABLE_CRSF_OUTPUT
-  // Production mode - Initialize CRSF bridge to output to FC
-  crsfBridge.init(&Serial1, CRSF_TX_PIN, CRSF_RX_PIN);
-  delay(100);
-#else
-  // Debug mode
-  Serial.println("[RX] CRSF output DISABLED - Debug mode active");
-  Serial.println("[RX] Ready to receive!");
+  // Initialize universal protocol bridge (automatically selects protocol from config)
+  protocolBridge = new UniversalBridge();
+  
+  if (!protocolBridge || !protocolBridge->init()) {
+#if !ENABLE_DEBUG_OUTPUT
+    Serial.println("[RX] Protocol initialization failed!");
+#endif
+    while (1) {
+      delay(1000);
+    }
+  }
+  
+#if !ENABLE_DEBUG_OUTPUT
+  Serial.printf("[RX] Protocol: %s\n", protocolBridge->getName());
+#endif
+  
+#if !ENABLE_DEBUG_OUTPUT
+  Serial.println("\n[RX] Ready to receive!");
   Serial.println("[RX] Listening for any transmitter (broadcast mode)");
-  Serial.printf("[RX] Test frequency: %d Hz\n", CRSF_OUTPUT_FREQUENCY_HZ);
   Serial.println();
   Serial.flush();
 #endif
@@ -459,11 +431,11 @@ void loop() {
   
   // Update LED status indicator
   if (CustomProtocol_IsLinkActive()) {
-    // Link active - solid GREEN
+    // Link active - LED solid ON
     digitalWrite(LED_PIN, HIGH);
     ledState = true;
   } else {
-    // No link - blink LED
+    // No link - LED blinking
     if (now - lastLedToggleMs >= LED_BLINK_RATE) {
       lastLedToggleMs = now;
       ledState = !ledState;
@@ -471,33 +443,29 @@ void loop() {
     }
   }
   
-#if ENABLE_CRSF_OUTPUT
-  // Update CRSF bridge
-  crsfBridge.update();
-  
-  // Send RC channels to FC via CRSF at configured frequency
-  if (now - lastCrsfUpdateMs >= CRSF_OUTPUT_INTERVAL) {
-    lastCrsfUpdateMs = now;
+  // Update protocol bridge
+  if (protocolBridge) {
+    protocolBridge->update();
     
-    if (crsfBridge.isActive()) {
+    // Send RC channels to FC via selected protocol
+    if (protocolBridge->isActive()) {
       if (CustomProtocol_IsLinkActive()) {
         // Get RC channels from protocol
         uint16_t channels[16];
         CustomProtocol_GetRcChannels(channels);
         
-        // Send to flight controller via CRSF
-        crsfBridge.sendRcChannels(channels);
+        // Send to flight controller via selected protocol
+        protocolBridge->sendRcChannels(channels);
       } else {
-        // Send failsafe values via CRSF
+        // Send failsafe values
         uint16_t failsafeChannels[16] = {
           992, 992, 172, 992, 172, 172, 172, 172,  // Safe values
           172, 172, 172, 172, 172, 172, 172, 172
         };
-        crsfBridge.sendRcChannels(failsafeChannels);
+        protocolBridge->sendRcChannels(failsafeChannels);
       }
     }
   }
-#endif
   
   // Send telemetry at 10 Hz (only if link is active)
   if (CustomProtocol_IsLinkActive() && (now - lastTelemetrySendMs >= TELEMETRY_SEND_INTERVAL)) {
@@ -515,7 +483,7 @@ void loop() {
     
     // Send telemetry
     if (!CustomProtocol_SendTelemetry(batteryVoltage, batteryCurrent, rssi, linkQuality)) {
-#if !ENABLE_CRSF_OUTPUT
+#if !ENABLE_DEBUG_OUTPUT
       // Debug mode - print errors
       if (now - lastRxErrorMs >= ERROR_PRINT_INTERVAL) {
         Serial.println("[RX] Failed to send telemetry");
@@ -525,7 +493,7 @@ void loop() {
     }
   }
   
-#if !ENABLE_CRSF_OUTPUT
+#if !ENABLE_DEBUG_OUTPUT
   // Debug mode - Print statistics every second
   if (now - lastStatsMs >= STATS_INTERVAL) {
     lastStatsMs = now;
@@ -534,6 +502,10 @@ void loop() {
     CustomProtocol_GetStats(&stats);
     
     Serial.println("\n--- RX Statistics ---");
+    if (protocolBridge) {
+      Serial.printf("Output Protocol: %s | Frames Sent: %lu\n",
+                    protocolBridge->getName(), protocolBridge->getFramesSent());
+    }
     Serial.printf("Packets RX: %lu | TX: %lu | Loss: %.1f%% | CRC Err: %lu\n", 
                   stats.packetsReceived, stats.packetsSent, 
                   stats.packetLossPercent, stats.crcErrors);

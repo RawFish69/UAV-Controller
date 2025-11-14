@@ -6,22 +6,24 @@ Multi-purpose control system for quadcopters. Supports autonomous control, hardw
 
 - **Controllers**: PID (cascaded), LQR (optimal), MPC (WIP), RL (WIP)
 - **Safety**: Multi-layer validation, slew limiting, timeout watchdog
-- **Hardware**: Integrates with TX_RX via CRSF protocol
+- **Hardware**: Custom TX/RX with universal protocol support (CRSF, SBUS, PPM, iBus, FrSky)
+- **TX/RX System**: Hybrid IMU+Joystick control, ESP-NOW wireless, multi-protocol receiver
 - **Simulation**: 200Hz dynamics with RViz
 
 ## Architecture
 
 **Manual Flight**:
 ```
-TX (IMU+Joystick) → ESP-NOW → RX → CRSF → FC
+TX (IMU+Joystick) → ESP-NOW → RX → Protocol Bridge → FC
+                                     (CRSF/SBUS/PPM/iBus/FrSky)
 ```
-No computer. TX_RX handles everything.
+No computer. TX_RX handles everything. Universal receiver works with any flight controller.
 
 **Autonomous**:
 ```
-ROS Controllers → Safety Gate → CRSF Adapter → UDP → TX → ESP-NOW → RX → CRSF → FC
+ROS Controllers → Safety Gate → CRSF Adapter → UDP → TX → ESP-NOW → RX → Protocol → FC
 ```
-Computer runs algorithms. TX relays commands.
+Computer runs algorithms. TX relays commands. Protocol configurable for your FC.
 
 **Simulation**:
 ```
@@ -64,6 +66,8 @@ TX firmware needs UDP modification. See docs/HARDWARE.md.
 | `adapters_crsf` | Python | ROS → TX bridge (UDP/Serial) |
 | `sim_dyn` | Python | Dynamics + RViz |
 | `common_msgs` | Messages | Custom message types |
+| `TX_RX` | ESP32 | Custom transmitter/receiver system |
+| `Utils` | Python | Universal protocol visualizer & monitor |
 
 ## Topics
 
@@ -113,11 +117,40 @@ ros2 topic echo /state/odom
 
 - **docs/SETUP_GUIDE.md** - Build, run, tune
 - **docs/HARDWARE.md** - TX integration for autonomous mode
+- **TX_RX/README.md** - Complete TX/RX system documentation
+- **Utils/README.md** - Universal protocol visualizer & monitor
+
+## TX_RX System
+
+Custom ESP32-based transmitter and receiver for manual flight control:
+
+**Transmitter Features:**
+- Hybrid IMU (BNO085/MPU6050) + Joystick control
+- ESP-NOW wireless (low latency)
+- Configurable sensitivity and update rates
+
+**Receiver Features:**
+- **Universal Protocol Support**: Works with any flight controller
+  - ✅ CRSF (Crossfire/ELRS) - Betaflight, INAV
+  - ✅ SBUS (Futaba) - Universal compatibility  
+  - ✅ PPM - Traditional flight controllers
+  - ✅ iBus (FlySky) - FlySky receivers
+  - ✅ FrSky S.PORT - FrSky telemetry systems
+- Easy protocol switching via single config file
+- Automatic failsafe handling
+
+**Quick Setup:**
+1. Edit `TX_RX/src/config.h` to select protocol
+2. Flash transmitter and receiver
+3. Configure flight controller to match protocol
+
+See `TX_RX/README.md` for complete documentation.
 
 ## Notes
 
-- ROS 2 Humble required
-- TX_RX handles manual flight (no ROS needed)
+- ROS 2 Humble required for autonomous control
+- TX_RX handles manual flight (no ROS/computer needed)
+- Universal receiver works with Betaflight, INAV, ArduPilot, and traditional FCs
 - MPC and RL controllers under development (lab collaboration)
 
 ---
