@@ -36,17 +36,29 @@ bool ESPNowTX::init() {
         initialized = false;
     }
     
-    // Set WiFi mode to station
-    WiFi.mode(WIFI_STA);
-    WiFi.disconnect();
-    delay(200);  // Give WiFi time to stabilize
+    // CRITICAL: If already in AP_STA mode, DO NOT TOUCH WiFi settings!
+    // The AP must stay running for web interface
+    wifi_mode_t currentMode = WiFi.getMode();
+    if (currentMode == WIFI_AP_STA) {
+        // Already in AP_STA mode - don't change ANYTHING about WiFi
+        Serial.println("[ESP-NOW TX] WiFi in AP_STA mode - preserving AP, not touching WiFi settings");
+        // Just verify AP is still running
+        IPAddress apIP = WiFi.softAPIP();
+        if (apIP.toString() == "0.0.0.0") {
+            Serial.println("[ESP-NOW TX] WARNING: AP IP is 0.0.0.0 but mode is AP_STA!");
+        }
+    } else {
+        // Not in AP_STA mode, safe to configure
+        WiFi.mode(WIFI_STA);
+        WiFi.disconnect();
+        delay(200);
+        esp_wifi_set_ps(WIFI_PS_NONE);
+        esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
+        delay(100);
+    }
     
-    // Disable WiFi power saving for better stability
+    // Disable WiFi power saving (safe even in AP_STA mode)
     esp_wifi_set_ps(WIFI_PS_NONE);
-    
-    // Set WiFi to channel 1 for better stability
-    esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
-    delay(100);
     
     // Print MAC address
     uint8_t mac[6];
