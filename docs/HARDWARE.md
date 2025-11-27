@@ -53,11 +53,12 @@ void loop() {
       float yaw = floats[2];       // -1.0 to 1.0
       float throttle = floats[3];  // 0.0 to 1.0
       
-      // Convert to CRSF channels and send
+      // Convert to CRSF channels and send (yaw is inverted to match Betaflight)
       rcChannels[0] = (uint16_t)(roll * 819.0 + 992.0);
       rcChannels[1] = (uint16_t)(pitch * 819.0 + 992.0);
       rcChannels[2] = (uint16_t)(172.0 + throttle * 1639.0);
-      rcChannels[3] = (uint16_t)(yaw * 819.0 + 992.0);
+      // Left rotation must be negative to align with Betaflight's convention
+      rcChannels[3] = (uint16_t)((-yaw) * 819.0 + 992.0);
       
       CustomProtocol_SendRcCommand(rcChannels);
       lastRcSendMs = now;

@@ -16,7 +16,7 @@
 // Set TX_CONTROL_MODE to :
 // 1 - for the web-based Quad Controller UI
 // 0 - to drive the transmitter using the IMU + potentiometer hardware.
-#define TX_CONTROL_MODE 1
+#define TX_CONTROL_MODE 0
 
 #if TX_CONTROL_MODE != 0 && TX_CONTROL_MODE != 1
   #error "TX_CONTROL_MODE must be 0 (IMU) or 1 (Web)"

@@ -165,7 +165,9 @@ bool CustomProtocol_ParsePacket(const uint8_t* data, size_t len, const uint8_t* 
         currentRcChannels[0] = (uint16_t)((directCmd->roll + 1.0f) * 819.5f + 172.0f);
         currentRcChannels[1] = (uint16_t)((directCmd->pitch + 1.0f) * 819.5f + 172.0f);
         currentRcChannels[2] = (uint16_t)(directCmd->throttle * 1639.0f + 172.0f);
-        currentRcChannels[3] = (uint16_t)((directCmd->yaw + 1.0f) * 819.5f + 172.0f);
+        // Invert yaw to match Betaflight's expected direction.
+        float invertedYaw = -directCmd->yaw;
+        currentRcChannels[3] = (uint16_t)((invertedYaw + 1.0f) * 819.5f + 172.0f);
         
         for (int i = 0; i < 4; i++) {
           if (currentRcChannels[i] < 172) currentRcChannels[i] = 172;

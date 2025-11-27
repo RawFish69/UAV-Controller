@@ -1070,7 +1070,8 @@ void loop() {
     rcChannels[2] = (uint16_t)(172.0 + webThrottle * 1639.0);
     
     // Yaw: -1.0 to 1.0 -> 172 to 1811 (center: 992)
-    rcChannels[3] = (uint16_t)(webYaw * 819.0 + 992.0);
+    // Invert yaw so Betaflight sees left rotation as negative.
+    rcChannels[3] = (uint16_t)((-webYaw) * 819.0 + 992.0);
     
     // AUX channels
     rcChannels[4] = aux1State ? 1811 : 172;  // AUX1
@@ -1430,7 +1431,8 @@ void loop() {
     rcChannels[0] = (uint16_t)(rollNormalized * 819.0f + 992.0f);
     rcChannels[1] = (uint16_t)(pitchNormalized * 819.0f + 992.0f);
     rcChannels[2] = (uint16_t)(172.0f + throttleNormalized * 1639.0f);
-    rcChannels[3] = (uint16_t)(yawNormalized * 819.0f + 992.0f);
+    // Invert yaw so Betaflight sees left rotation as negative.
+    rcChannels[3] = (uint16_t)((-yawNormalized) * 819.0f + 992.0f);
     rcChannels[4] = 992;
     rcChannels[5] = 992;
     rcChannels[6] = 992;
