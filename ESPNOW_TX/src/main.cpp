@@ -1530,6 +1530,7 @@ void loop() {
 // ============================================================
 
 #include "crsf_bridge.h"
+#include <Adafruit_NeoPixel.h>
 
 // CRSF Bridge instance
 CRSFBridge crsfBridge;
@@ -1538,9 +1539,28 @@ CRSFBridge crsfBridge;
 #define CRSF_TX_PIN 21 
 #define CRSF_RX_PIN 20   
 
-// LED Status Indicator
-#define LED_PIN 8
-#define LED_BLINK_RATE 500
+// NeoPixel LED Configuration
+#define LED_PIN 2              // Built-in LED pin (same as TX)
+#define LED_COUNT 1            // Single LED
+#define LED_BRIGHTNESS 255     // Brightness (0-255)
+
+// LED Status Colors
+#define COLOR_YELLOW 0xFFFF00   // Yellow
+#define COLOR_ORANGE 0xFF6600   // Orange
+#define COLOR_RED 0xFF0000      // Red
+#define COLOR_GREEN 0x00FF00    // Green
+#define COLOR_BLUE 0x0000FF     // Blue
+
+Adafruit_NeoPixel led = Adafruit_NeoPixel(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
+
+// LED state tracking
+uint32_t currentColor = COLOR_RED;
+unsigned long lastLedUpdateMs = 0;
+const unsigned long LED_UPDATE_INTERVAL = 20;  // Update LED at 50Hz for smooth transitions
+
+// Breathing effect parameters
+const unsigned long BREATHING_CYCLE_TIME = 2000;  // 2 seconds for full breathing cycle
+unsigned long breathingStartMs = 0;
 
 #define ENABLE_CRSF_OUTPUT true
 #define CRSF_OUTPUT_FREQUENCY_HZ 100
@@ -1550,26 +1570,170 @@ unsigned long lastTelemetrySendMs = 0;
 unsigned long lastStatsMs = 0;
 unsigned long lastRxErrorMs = 0;
 unsigned long lastCrsfUpdateMs = 0;
-unsigned long lastLedToggleMs = 0;
 
 const unsigned long CRSF_OUTPUT_INTERVAL = 1000 / CRSF_OUTPUT_FREQUENCY_HZ;
 const unsigned long TELEMETRY_SEND_INTERVAL = RX_TELEMETRY_SEND_INTERVAL_MS;
 const unsigned long STATS_INTERVAL = RX_STATS_INTERVAL_MS;
 const unsigned long ERROR_PRINT_INTERVAL = 1000;
 
-bool ledState = false;
-
 float batteryVoltage = 0.0;
 float batteryCurrent = 0.0;
 int16_t rssi = -45;
 uint8_t linkQuality = 100;
 
+// Helper function to blend colors smoothly
+uint32_t blendColor(uint32_t color1, uint32_t color2, float ratio) {
+  ratio = constrain(ratio, 0.0, 1.0);
+  uint8_t r1 = (color1 >> 16) & 0xFF;
+  uint8_t g1 = (color1 >> 8) & 0xFF;
+  uint8_t b1 = color1 & 0xFF;
+  uint8_t r2 = (color2 >> 16) & 0xFF;
+  uint8_t g2 = (color2 >> 8) & 0xFF;
+  uint8_t b2 = color2 & 0xFF;
+  
+  uint8_t r = (uint8_t)(r1 + (r2 - r1) * ratio);
+  uint8_t g = (uint8_t)(g1 + (g2 - g1) * ratio);
+  uint8_t b = (uint8_t)(b1 + (b2 - b1) * ratio);
+  
+  return (r << 16) | (g << 8) | b;
+}
+
+// Update LED based on connection status
+void updateLED() {
+  unsigned long now = millis();
+  bool linkActive = CustomProtocol_IsLinkActive();
+  
+  if (linkActive) {
+    // Active connection: RGB breathing effect (red -> green -> blue -> red)
+    unsigned long cycleTime = now % (BREATHING_CYCLE_TIME * 3);  // 3 colors = 3 cycles
+    float colorPhase = (float)cycleTime / BREATHING_CYCLE_TIME;
+    
+    uint32_t color1, color2;
+    float ratio;
+    
+    if (colorPhase < 1.0) {
+      // Red to Green
+      color1 = COLOR_RED;
+      color2 = COLOR_GREEN;
+      ratio = colorPhase;
+    } else if (colorPhase < 2.0) {
+      // Green to Blue
+      color1 = COLOR_GREEN;
+      color2 = COLOR_BLUE;
+      ratio = colorPhase - 1.0;
+    } else {
+      // Blue to Red
+      color1 = COLOR_BLUE;
+      color2 = COLOR_RED;
+      ratio = colorPhase - 2.0;
+    }
+    
+    // Blend colors
+    currentColor = blendColor(color1, color2, ratio);
+    
+    // Apply independent breathing effect (sine wave for smooth fade)
+    float breathingPhase = (float)(now % BREATHING_CYCLE_TIME) / BREATHING_CYCLE_TIME;
+    float breathing = (sin(breathingPhase * 2.0 * PI - PI/2.0) + 1.0) / 2.0;  // 0.0 to 1.0
+    breathing = breathing * 0.4 + 0.6;  // Keep brightness between 60% and 100%
+    
+    // Apply breathing brightness
+    uint8_t r = (uint8_t)(((currentColor >> 16) & 0xFF) * breathing);
+    uint8_t g = (uint8_t)(((currentColor >> 8) & 0xFF) * breathing);
+    uint8_t b = (uint8_t)((currentColor & 0xFF) * breathing);
+    currentColor = (r << 16) | (g << 8) | b;
+  } else {
+    // No connection: Yellow -> Orange -> Red -> Orange -> Yellow breathing
+    unsigned long cycleTime = now % (BREATHING_CYCLE_TIME * 2);  // Forward and back = 2 cycles
+    float colorPhase = (float)cycleTime / BREATHING_CYCLE_TIME;
+    
+    uint32_t color1, color2;
+    float ratio;
+    
+    if (colorPhase < 1.0) {
+      // Yellow to Orange to Red (forward)
+      if (colorPhase < 0.5) {
+        // Yellow to Orange
+        color1 = COLOR_YELLOW;
+        color2 = COLOR_ORANGE;
+        ratio = colorPhase * 2.0;
+      } else {
+        // Orange to Red
+        color1 = COLOR_ORANGE;
+        color2 = COLOR_RED;
+        ratio = (colorPhase - 0.5) * 2.0;
+      }
+    } else {
+      // Red to Orange to Yellow (backward)
+      float backPhase = colorPhase - 1.0;
+      if (backPhase < 0.5) {
+        // Red to Orange
+        color1 = COLOR_RED;
+        color2 = COLOR_ORANGE;
+        ratio = backPhase * 2.0;
+      } else {
+        // Orange to Yellow
+        color1 = COLOR_ORANGE;
+        color2 = COLOR_YELLOW;
+        ratio = (backPhase - 0.5) * 2.0;
+      }
+    }
+    
+    // Blend colors
+    currentColor = blendColor(color1, color2, ratio);
+    
+    // Apply independent breathing effect (sine wave for smooth fade)
+    float breathingPhase = (float)(now % BREATHING_CYCLE_TIME) / BREATHING_CYCLE_TIME;
+    float breathing = (sin(breathingPhase * 2.0 * PI - PI/2.0) + 1.0) / 2.0;  // 0.0 to 1.0
+    breathing = breathing * 0.3 + 0.4;  // Keep brightness between 40% and 70%
+    
+    // Apply breathing brightness
+    uint8_t r = (uint8_t)(((currentColor >> 16) & 0xFF) * breathing);
+    uint8_t g = (uint8_t)(((currentColor >> 8) & 0xFF) * breathing);
+    uint8_t b = (uint8_t)((currentColor & 0xFF) * breathing);
+    currentColor = (r << 16) | (g << 8) | b;
+  }
+  
+  // Update LED
+  led.setPixelColor(0, currentColor);
+  led.setBrightness(LED_BRIGHTNESS);
+  led.show();
+}
+
 void setup() {
   Serial.begin(115200);
   delay(1000);
   
+  // Initialize NeoPixel LED
+#if !ENABLE_CRSF_OUTPUT
+  Serial.println("[LED] Initializing NeoPixel on GPIO 2...");
+#endif
   pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, LOW);
+  digitalWrite(LED_PIN, LOW);  // Ensure pin is ready
+  delay(50);
+  
+  led.begin();
+  led.clear();  // Clear all pixels
+  led.setBrightness(LED_BRIGHTNESS);
+  led.show();
+  delay(100);
+  
+  // Test LED - flash red a few times to confirm it's working
+#if !ENABLE_CRSF_OUTPUT
+  Serial.println("[LED] Testing LED...");
+#endif
+  for (int i = 0; i < 3; i++) {
+    led.setPixelColor(0, COLOR_RED);
+    led.show();
+    delay(300);
+    led.setPixelColor(0, 0);  // Off
+    led.show();
+    delay(300);
+  }
+  led.setPixelColor(0, COLOR_RED);
+  led.show();
+#if !ENABLE_CRSF_OUTPUT
+  Serial.println("[LED] NeoPixel initialized (RED = Starting)");
+#endif
   
 #if !ENABLE_CRSF_OUTPUT
   Serial.println("\n\n=================================");
@@ -1605,6 +1769,7 @@ void setup() {
   Serial.flush();
 #endif
   
+  breathingStartMs = millis();
   delay(100);
 }
 
@@ -1613,15 +1778,10 @@ void loop() {
   
   CustomProtocol_Update();
   
-  if (CustomProtocol_IsLinkActive()) {
-    digitalWrite(LED_PIN, HIGH);
-    ledState = true;
-  } else {
-    if (now - lastLedToggleMs >= LED_BLINK_RATE) {
-      lastLedToggleMs = now;
-      ledState = !ledState;
-      digitalWrite(LED_PIN, ledState ? HIGH : LOW);
-    }
+  // Update LED continuously for smooth transitions
+  if (now - lastLedUpdateMs >= LED_UPDATE_INTERVAL) {
+    lastLedUpdateMs = now;
+    updateLED();
   }
   
 #if ENABLE_CRSF_OUTPUT
