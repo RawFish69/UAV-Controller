@@ -19,8 +19,9 @@ TX (IMU+Joystick) → ESP-NOW → RX → Protocol Bridge → FC
 ```
 No computer. TX_RX handles everything. Universal receiver works with any flight controller.
 
-![Brushed Motor Quadcopter](docs/brushed.jpg)
-test brushed quad with my custom TX RX.
+<img src="docs/brushed.jpg" alt="Brushed Motor Quadcopter" width="400">
+
+*Test brushed quad with my custom TX RX.*
 
 
 **Autonomous**:
