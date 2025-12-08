@@ -91,7 +91,7 @@
 #define FRSKY_SPORT_OUTPUT_FREQUENCY_HZ 100  // FrSky output frequency
 
 // -------- LED Status Indicator --------
-#define LED_PIN 8                      // Status LED pin (any color)
+#define LED_PIN 2                      // Built-in LED pin (GPIO 2 for ESP32-C3)
 #define LED_BLINK_RATE 500             // Blink interval in ms (blinking = no TX connection)
 
 // -------- Debug Configuration --------

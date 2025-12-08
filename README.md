@@ -19,6 +19,10 @@ TX (IMU+Joystick) → ESP-NOW → RX → Protocol Bridge → FC
 ```
 No computer. TX_RX handles everything. Universal receiver works with any flight controller.
 
+![Brushed Motor Quadcopter](docs/brushed.jpg)
+test brushed quad with my custom TX RX.
+
+
 **Autonomous**:
 ```
 ROS Controllers → Safety Gate → CRSF Adapter → UDP → TX → ESP-NOW → RX → Protocol → FC
@@ -123,6 +127,7 @@ ros2 topic echo /state/odom
 ## TX_RX System
 
 Custom ESP32-based transmitter and receiver for manual flight control:
+
 
 **Transmitter Features:**
 - Hybrid IMU (BNO085/MPU6050) + Joystick control

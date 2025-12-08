@@ -1540,7 +1540,7 @@ CRSFBridge crsfBridge;
 #define CRSF_RX_PIN 20   
 
 // NeoPixel LED Configuration
-#define LED_PIN 2              // Built-in LED pin (same as TX)
+// LED_PIN is defined in config.h
 #define LED_COUNT 1            // Single LED
 #define LED_BRIGHTNESS 255     // Brightness (0-255)
 
