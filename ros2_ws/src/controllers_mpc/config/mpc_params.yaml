@@ -1,0 +1,33 @@
+mpc_controller:
+  ros__parameters:
+    control_rate: 100.0  # Hz
+    mass: 0.698  # kg
+    Jx: 0.0034  # kg*m^2
+    Jy: 0.0034  # kg*m^2
+    Jz: 0.006  # kg*m^2
+    Jtp: 1.302e-6  # Propeller moment of inertia
+    hover_thrust: 0.5  # normalized [0..1]
+    Ts: 0.1  # Sampling time (s)
+    horizon: 4  # Prediction horizon
+    
+    # Cost matrices (3x3), row-major format
+    # Q: State cost matrix (for phi, theta, psi)
+    Q: [
+      10.0, 0.0, 0.0,
+      0.0, 10.0, 0.0,
+      0.0, 0.0, 10.0
+    ]
+    
+    # S: Terminal state cost matrix
+    S: [
+      10.0, 0.0, 0.0,
+      0.0, 10.0, 0.0,
+      0.0, 0.0, 10.0
+    ]
+    
+    # R: Control cost matrix (for dU2, dU3, dU4)
+    R: [
+      10.0, 0.0, 0.0,
+      0.0, 10.0, 0.0,
+      0.0, 0.0, 10.0
+    ]

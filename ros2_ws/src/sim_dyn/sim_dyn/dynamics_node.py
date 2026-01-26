@@ -58,7 +58,7 @@ class DynamicsNode(Node):
 
         # Command input
         self.cmd_body_rates = np.array([0.0, 0.0, 0.0])
-        self.cmd_thrust = 0.0
+        self.cmd_thrust = self.hover_thrust  # Start with hover thrust
         self.last_cmd_time = self.get_clock().now()
 
         # Publishers
@@ -85,6 +85,9 @@ class DynamicsNode(Node):
         # Simulation timer
         dt = 1.0 / self.sim_rate
         self.timer = self.create_timer(dt, self.sim_step)
+
+        # Publish initial state immediately so controller can start
+        self.publish_state()
 
         self.get_logger().info(
             f'Dynamics simulator started at {self.sim_rate} Hz, '

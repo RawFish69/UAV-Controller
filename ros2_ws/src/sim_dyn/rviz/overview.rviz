@@ -8,6 +8,7 @@ Visualization Manager:
   Displays:
     - Class: rviz_default_plugins/Grid
       Name: Grid
+      Enabled: true
       Reference Frame: map
       Plane Cell Count: 20
       Color: 160; 160; 160
@@ -37,6 +38,11 @@ Visualization Manager:
     - Class: rviz_default_plugins/MarkerArray
       Name: UAV Body
       Topic: /visualization_marker
+      Enabled: true
+
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Terrain Obstacles
+      Topic: /terrain/obstacles
       Enabled: true
 
   Global Options:

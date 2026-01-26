@@ -120,8 +120,9 @@ ros2 topic echo /state/odom
 
 ## Documentation
 
-- **docs/SETUP_GUIDE.md** - Build, run, tune
-- **docs/HARDWARE.md** - TX integration for autonomous mode
+- **📖 [docs/SOFTWARE_GUIDE.md](docs/SOFTWARE_GUIDE.md)** - **Software guide** (start here!)
+- **🚀 [docs/EXAMPLE_USAGE.md](docs/EXAMPLE_USAGE.md)** - **Example: Using controllers with terrain**
+- **docs/HARDWARE.md** - Detailed TX integration for autonomous mode
 - **TX_RX/README.md** - Complete TX/RX system documentation
 - **Utils/README.md** - Universal protocol visualizer & monitor
 
