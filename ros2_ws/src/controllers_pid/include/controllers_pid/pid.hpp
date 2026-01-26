@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 
+#include "common_msgs/msg/attitude_thrust.hpp"
 #include "common_msgs/msg/body_rate_thrust.hpp"
 #include "geometry_msgs/msg/quaternion_stamped.hpp"
 #include "geometry_msgs/msg/vector3_stamped.hpp"

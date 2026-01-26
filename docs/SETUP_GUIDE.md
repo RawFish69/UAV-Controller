@@ -26,6 +26,17 @@ source ros2_ws/install/setup.bash
 ros2 launch sim_dyn sim_lqr.launch.py
 ```
 
+### Headless (no display / SSH)
+
+If you have no display (SSH, CI, or headless machine), disable RViz:
+
+```bash
+ros2 launch sim_dyn sim_pid.launch.py use_rviz:=false
+ros2 launch sim_dyn sim_lqr.launch.py use_rviz:=false
+```
+
+Dynamics, controller, and safety gate still run; use `ros2 topic echo /state/odom` etc. to verify.
+
 ## Debug
 
 ### Nodes
@@ -83,6 +94,9 @@ source ros2_ws/install/setup.bash
 # Check for build errors
 colcon build --event-handlers console_direct+
 ```
+
+**RViz "could not connect to display"**:
+- Run with `use_rviz:=false` (see Headless above), or run from a session with a display (e.g. remote desktop).
 
 **Oscillations**:
 - Edit `ros2_ws/src/controllers_pid/config/pid_params.yaml`
