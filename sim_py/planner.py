@@ -278,23 +278,30 @@ def default_plan(
     if path_cfg is None:
         path_cfg = {}
 
-    sx_rel = float(path_cfg.get("start_relative_x", 0.02))
-    sy_rel = float(path_cfg.get("start_relative_y", 0.02))
-    sz_rel = float(path_cfg.get("start_relative_z", 0.05))
-    gx_rel = float(path_cfg.get("end_relative_x", 0.98))
-    gy_rel = float(path_cfg.get("end_relative_y", 0.98))
-    gz_rel = float(path_cfg.get("end_relative_z", 0.9))
+    # Allow simulator to pass absolute start/goal (keeps planner consistent with run_sim offsets).
+    start_abs = path_cfg.get("start_abs")
+    goal_abs = path_cfg.get("goal_abs")
+    if start_abs is not None and goal_abs is not None:
+        start = np.asarray(start_abs, dtype=float).reshape(3)
+        goal = np.asarray(goal_abs, dtype=float).reshape(3)
+    else:
+        sx_rel = float(path_cfg.get("start_relative_x", 0.02))
+        sy_rel = float(path_cfg.get("start_relative_y", 0.02))
+        sz_rel = float(path_cfg.get("start_relative_z", 0.05))
+        gx_rel = float(path_cfg.get("end_relative_x", 0.98))
+        gy_rel = float(path_cfg.get("end_relative_y", 0.98))
+        gz_rel = float(path_cfg.get("end_relative_z", 0.9))
 
-    sx = sx_rel * float(space_dim[0])
-    sy = sy_rel * float(space_dim[1])
-    sz = sz_rel * float(space_dim[2])
+        sx = sx_rel * float(space_dim[0])
+        sy = sy_rel * float(space_dim[1])
+        sz = sz_rel * float(space_dim[2])
 
-    gx = gx_rel * float(space_dim[0])
-    gy = gy_rel * float(space_dim[1])
-    gz = gz_rel * float(space_dim[2])
+        gx = gx_rel * float(space_dim[0])
+        gy = gy_rel * float(space_dim[1])
+        gz = gz_rel * float(space_dim[2])
 
-    start = np.array([sx, sy, sz], dtype=float)
-    goal = np.array([gx, gy, gz], dtype=float)
+        start = np.array([sx, sy, sz], dtype=float)
+        goal = np.array([gx, gy, gz], dtype=float)
 
     planner_type = str(path_cfg.get("planner_type", "straight")).lower()
     terrain = next((o for o in obstacles if isinstance(o, HeightFieldTerrain)), None)

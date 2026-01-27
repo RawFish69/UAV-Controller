@@ -15,11 +15,11 @@ Multi-purpose quadcopter control stack with:
 - **Safety**: validation, limiting, watchdog (`safety_gate`)
 - **Hardware link**: CRSF adapter + ESP-NOW based TX/RX + protocol bridging
 
-## Demo (MPC + A*)
+## Demo (A* & RRT path planner)
 
 <p>
-  <img src="docs/astar_mountain_0.png" alt="Mountain path planner with A* (MPC)" width="49%">
-  <img src="docs/astar_forest_0.png" alt="Forest path planner with A* (MPC)" width="49%">
+  <img src="docs/mountain_astar.png" alt="Mountain path planner with A* (MPC)" width="49%">
+  <img src="docs/mountain_rrt.png" alt="Forest path planner with A* (MPC)" width="49%">
 </p>
 
 ## Architecture (high level)

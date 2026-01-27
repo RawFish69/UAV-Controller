@@ -10,11 +10,17 @@ path:
   end_relative_y: 1.0
   end_relative_z: "auto"  # "auto" picks a random height in [0, tallest tree]
 
+  # Random XY offsets (added after relative->absolute conversion), in meters.
+  # Each axis is sampled uniformly in [-range, +range] then clamped to map bounds.
+  start_xy_offset_range: 100.0
+  end_xy_offset_range: 100.0
+
   # Path planner settings
   # planner_type: "straight" | "astar" | "rrt"
-  planner_type: "astar"
+  planner_type: "rrt"
   grid_resolution: 1.5       # For A* (smaller = finer grid, better avoidance)
   collision_inflation: 1.5    # Safety margin around obstacles [m] (increase to stay farther)
+  terrain_clearance: 2.0      # For mountains: altitude margin over terrain [m]
   rrt_step_size: 5.0         # For RRT
   rrt_max_iterations: 2000
   goal_tolerance: 2.0        # RRT goal radius [m]
@@ -59,6 +65,15 @@ visual:
   tree_radius_ref: 1.0
 
   # UAV trajectory appearance
-  path_linewidth: 2.0
+  path_color: "deepskyblue"
+  path_linewidth: 3.0
   marker_size: 40.0
+
+  # Planned path appearance
+  planned_linewidth: 2.0
+  planned_alpha: 0.85
+
+  # Mountains terrain surface appearance
+  terrain_alpha: 0.45
+  terrain_cmap: "terrain"
 

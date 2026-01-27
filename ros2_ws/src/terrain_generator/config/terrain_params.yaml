@@ -14,16 +14,16 @@ terrain_generator:
     # Mountains parameters
     mountains:
       num_peaks: 50
-      base_size_range: [3.0, 8.0]  # Base size range (m)
-      height_range: [10.0, 30.0]  # Peak height range (m)
+      base_size_range: [3.0, 6.0]  # Base size range (m)
+      height_range: [5.0, 20.0]  # Peak height range (m)
       # Make 1-2 continuous ridge-chains (polyline mountains)
-      ridge_chain_count: 2
-      ridge_chain_points: 4
-      ridge_chain_width: 18.0
+      ridge_chain_count: 4
+      ridge_chain_points: 20
+      ridge_chain_width: 36.0
       ridge_chain_peak_spacing: 18.0
       ridge_chain_peak_boost: 1.0
       # Optional global ridge-lines / pits (keep small if you want mostly "one mountain")
-      ridge_count: 0
+      ridge_count: 2
       pit_count: 4
       pit_depth_range: [5.0, 20.0]
       steepness: 1.8

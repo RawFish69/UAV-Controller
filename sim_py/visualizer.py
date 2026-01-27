@@ -46,21 +46,27 @@ def plot_simulation(
     if visual_cfg is None:
         visual_cfg = {}
 
+    # Higher contrast defaults to keep path visible through terrain
     path_linewidth = float(visual_cfg.get("path_linewidth", 2.0))
+    path_color = str(visual_cfg.get("path_color", "deepskyblue"))
     marker_size = float(visual_cfg.get("marker_size", 40.0))
     tree_linewidth = float(visual_cfg.get("tree_linewidth", 4.0))
     tree_alpha = float(visual_cfg.get("tree_alpha", 0.9))
     tree_radius_ref = float(visual_cfg.get("tree_radius_ref", 1.0))
+    planned_linewidth = float(visual_cfg.get("planned_linewidth", 2.0))
+    planned_alpha = float(visual_cfg.get("planned_alpha", 0.8))
+    terrain_alpha = float(visual_cfg.get("terrain_alpha", 0.45))
+    terrain_cmap = str(visual_cfg.get("terrain_cmap", "terrain"))
 
     # Plot trajectory
     ax.plot(
         traj[:, 0],
         traj[:, 1],
         traj[:, 2],
-        color="blue",
+        color=path_color,
         linewidth=path_linewidth,
         label="UAV path",
-        zorder=3,
+        zorder=5,
     )
     ax.scatter(
         traj[0, 0],
@@ -95,10 +101,10 @@ def plot_simulation(
                 planned_waypoints[:, 2],
                 color="orange",
                 linestyle="--",
-                linewidth=1.5,
-                alpha=0.7,
+                linewidth=planned_linewidth,
+                alpha=planned_alpha,
                 label="Planned path",
-                zorder=2,
+                zorder=4,
             )
             # Mark waypoints as small orange dots
             ax.scatter(
@@ -108,7 +114,7 @@ def plot_simulation(
                 color="orange",
                 s=20,
                 alpha=0.5,
-                zorder=2,
+                zorder=4,
             )
 
     # Plot obstacles
@@ -143,10 +149,10 @@ def plot_simulation(
                 X,
                 Y,
                 terrain.heights,
-                cmap="terrain",
+                cmap=terrain_cmap,
                 linewidth=0.0,
                 antialiased=True,
-                alpha=0.65,
+                alpha=terrain_alpha,
                 zorder=1,
             )
 

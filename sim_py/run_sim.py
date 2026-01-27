@@ -115,6 +115,7 @@ def main() -> None:
         tree_height_scale=float(vis_cfg.get("tree_height_scale", 1.0)),
     )
     logger.info(f"Generated {len(obstacles)} obstacles")
+    terrain = next((o for o in obstacles if hasattr(o, "height_at")), None)
 
     # Compute max allowed flight altitude: cannot fly above tallest obstacle/terrain
     max_tree_top = 0.0
@@ -132,13 +133,15 @@ def main() -> None:
         if top > max_tree_top:
             max_tree_top = top
 
-    if cfg.terrain_type == "forest" and max_tree_top > 0.0:
+    # Give the plot some headroom above tallest obstacle/terrain (like forest).
+    if cfg.terrain_type in {"forest", "mountains"} and max_tree_top > 0.0:
         height_ratio = float(vis_cfg.get("height_ratio", 1.2))
         cfg.space_dim = cfg.space_dim.copy()
         cfg.space_dim[2] = max_tree_top * height_ratio
+        label = "tallest tree" if cfg.terrain_type == "forest" else "tallest peak"
         logger.info(
             f"Adjusted space Z to {cfg.space_dim[2]:.2f} m "
-            f"(ratio {height_ratio:.2f} * tallest tree)"
+            f"(ratio {height_ratio:.2f} * {label})"
         )
 
     max_z_allowed = min(max_tree_top, float(cfg.space_dim[2]))
@@ -166,12 +169,51 @@ def main() -> None:
     else:
         gz_rel = float(gz_raw)
         gz = gz_rel * float(cfg.space_dim[2])
+    # Optional random XY offsets (meters), applied after relative->absolute conversion.
+    start_xy_off = float(path_cfg.get("start_xy_offset_range", 0.0))
+    end_xy_off = float(path_cfg.get("end_xy_offset_range", 0.0))
+    if start_xy_off > 0.0:
+        dx_s = float(np.random.uniform(-start_xy_off, start_xy_off))
+        dy_s = float(np.random.uniform(-start_xy_off, start_xy_off))
+        sx += dx_s
+        sy += dy_s
+        logger.info(f"Start XY offset: dx={dx_s:.2f} m, dy={dy_s:.2f} m (range ±{start_xy_off:.2f})")
+    if end_xy_off > 0.0:
+        dx_g = float(np.random.uniform(-end_xy_off, end_xy_off))
+        dy_g = float(np.random.uniform(-end_xy_off, end_xy_off))
+        gx += dx_g
+        gy += dy_g
+        logger.info(f"Goal XY offset: dx={dx_g:.2f} m, dy={dy_g:.2f} m (range ±{end_xy_off:.2f})")
+
+    # Clamp XY within map bounds
+    sx = float(np.clip(sx, 0.0, float(cfg.space_dim[0])))
+    sy = float(np.clip(sy, 0.0, float(cfg.space_dim[1])))
+    gx = float(np.clip(gx, 0.0, float(cfg.space_dim[0])))
+    gy = float(np.clip(gy, 0.0, float(cfg.space_dim[1])))
+
+    # For mountains: ensure goal isn't inside the terrain surface
+    terrain_clearance = float(path_cfg.get("terrain_clearance", 2.0))
+    if cfg.terrain_type == "mountains" and terrain is not None:
+        ground_goal = float(terrain.height_at(gx, gy))
+        min_goal_z = ground_goal + terrain_clearance
+        if gz < min_goal_z:
+            old_gz = gz
+            gz = min_goal_z
+            gz_rel = gz / float(cfg.space_dim[2]) if float(cfg.space_dim[2]) > 0 else 0.0
+            logger.info(
+                f"Raised goal Z above terrain: {old_gz:.2f} -> {gz:.2f} m "
+                f"(ground={ground_goal:.2f}, clearance={terrain_clearance:.2f})"
+            )
+
     path_start = np.array([sx, sy, sz], dtype=float)
     path_goal = np.array([gx, gy, gz], dtype=float)
 
     # Normalize path_cfg to avoid passing non-numeric goal Z to planner
     path_cfg = dict(path_cfg)
     path_cfg["end_relative_z"] = gz_rel
+    # Also pass absolute start/goal so the planner matches the simulator
+    path_cfg["start_abs"] = path_start.tolist()
+    path_cfg["goal_abs"] = path_goal.tolist()
 
     # Warn if goal is outside map bounds
     if gx > cfg.space_dim[0] or gy > cfg.space_dim[1] or gz > cfg.space_dim[2]:
