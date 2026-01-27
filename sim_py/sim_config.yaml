@@ -24,7 +24,7 @@ controller:
   controller_type: "pid"
 
   # Simulation horizon and timestep
-  sim_time: 240       # [s]  (increase to let it travel far)
+  sim_time: 480       # [s]  (increase to let it travel far)
   dt: 0.01              # [s]
 
   # Max acceleration magnitude allowed for any controller

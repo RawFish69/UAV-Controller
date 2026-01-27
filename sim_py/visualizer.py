@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
-from .terrain_wrapper import BoxObstacle, CylinderObstacle
+from .terrain_wrapper import BoxObstacle, CylinderObstacle, HeightFieldTerrain
 
 
 def plot_simulation(
@@ -66,7 +66,7 @@ def plot_simulation(
         traj[0, 0],
         traj[0, 1],
         traj[0, 2],
-        color="green",
+        color="cyan",
         s=marker_size,
         label="Start",
         zorder=4,
@@ -133,6 +133,28 @@ def plot_simulation(
                 linewidth=tree_linewidth * radius_scale,
                 alpha=tree_alpha,
             )
+    elif terrain_type == "mountains":
+        terrain = next((o for o in obstacles if isinstance(o, HeightFieldTerrain)), None)
+        cylinders = [o for o in obstacles if hasattr(o, "radius")]
+
+        if terrain is not None:
+            X, Y = np.meshgrid(terrain.xs, terrain.ys, indexing="ij")
+            ax.plot_surface(
+                X,
+                Y,
+                terrain.heights,
+                cmap="terrain",
+                linewidth=0.0,
+                antialiased=True,
+                alpha=0.65,
+                zorder=1,
+            )
+
+        if cylinders:
+            obs_x = [float(c.center[0]) for c in cylinders]
+            obs_y = [float(c.center[1]) for c in cylinders]
+            obs_z = [float(c.center[2]) + float(getattr(c, "height", 0.0)) / 2.0 for c in cylinders]
+            ax.scatter(obs_x, obs_y, obs_z, color="gray", alpha=0.6, label="Rocks", zorder=2)
     else:
         # Fallback: gray points at obstacle centers
         obs_x: List[float] = []

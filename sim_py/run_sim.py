@@ -85,7 +85,8 @@ def main() -> None:
     cfg_path = Path(args.sim_config)
     if cfg_path.exists():
         logger.info(f"Loading config from: {cfg_path}")
-        with cfg_path.open("r") as f:
+        # Explicit UTF-8 to avoid Windows cp1252 decode issues
+        with cfg_path.open("r", encoding="utf-8") as f:
             sim_cfg = yaml.safe_load(f) or {}
     else:
         logger.warning(f"Config file not found: {cfg_path}, using defaults")
@@ -115,15 +116,19 @@ def main() -> None:
     )
     logger.info(f"Generated {len(obstacles)} obstacles")
 
-    # Compute max allowed flight altitude: cannot fly above tallest tree
+    # Compute max allowed flight altitude: cannot fly above tallest obstacle/terrain
     max_tree_top = 0.0
     for o in obstacles:
-        c = o.center
-        top = float(c[2])
-        if hasattr(o, "height"):
-            top += float(getattr(o, "height"))
-        elif hasattr(o, "size"):
-            top += float(getattr(o, "size")[2])
+        if hasattr(o, "heights"):  # HeightFieldTerrain
+            top = float(np.max(getattr(o, "heights")))
+        else:
+            c = o.center
+            top = float(c[2])
+            if hasattr(o, "height"):
+                top += float(getattr(o, "height"))
+            elif hasattr(o, "size"):
+                # BoxObstacle center is the box center, so top is center + half height
+                top += float(getattr(o, "size")[2]) / 2.0
         if top > max_tree_top:
             max_tree_top = top
 
@@ -216,6 +221,33 @@ def main() -> None:
     controller_type = args.controller or ctrl_cfg.get("controller_type", "pid")
     logger.info(f"Controller: {controller_type.upper()}")
     logger.info(f"Simulation time: {max_t:.1f} s, dt: {dt:.3f} s")
+
+    # Extra pre-loop debug summary
+    n_cyl = sum(1 for o in obstacles if hasattr(o, "radius"))
+    n_box = sum(1 for o in obstacles if hasattr(o, "size"))
+    logger.info(f"Obstacle breakdown: {n_box} boxes, {n_cyl} cylinders (total {len(obstacles)})")
+    logger.info(
+        f"Planner config: type={planner_type}, inflation={float(path_cfg.get('collision_inflation', 0.5))}, "
+        f"grid_res={float(path_cfg.get('grid_resolution', 2.0))}, "
+        f"rrt_step={float(path_cfg.get('rrt_step_size', 5.0))}, "
+        f"rrt_goal_tol={float(path_cfg.get('goal_tolerance', 2.0))}, "
+        f"rrt_max_iter={int(path_cfg.get('rrt_max_iterations', 2000))}"
+    )
+    logger.info(
+        f"Controller config: acc_max={float(ctrl_cfg.get('acc_max', 20.0))}, "
+        f"pid={ctrl_cfg.get('pid', {})}, lqr={ctrl_cfg.get('lqr', {})}, mpc={ctrl_cfg.get('mpc', {})}"
+    )
+    logger.info(
+        f"Start={path_start.round(2).tolist()}, Goal={path_goal.round(2).tolist()}, "
+        f"direct_dist={float(np.linalg.norm(path_goal - path_start)):.1f} m"
+    )
+    if len(waypoints) >= 2:
+        wp_pos = np.array([wp.position for wp in waypoints], dtype=float)
+        seg = np.linalg.norm(np.diff(wp_pos, axis=0), axis=1)
+        logger.info(f"Planned path length: {float(seg.sum()):.1f} m")
+
+    steps = int(max_t / max(dt, 1e-9))
+    logger.info(f"Sim steps: ~{steps} iterations")
     logger.info("-" * 60)
     logger.info("Starting simulation loop...")
 
@@ -225,6 +257,8 @@ def main() -> None:
     last_log_time = 0.0
     log_interval = 5.0  # Log every 5 seconds
     collisions_detected = 0
+    terrain = next((o for o in obstacles if hasattr(o, "height_at")), None)
+    terrain_clearance = float(path_cfg.get("terrain_clearance", 2.0))
 
     while t < max_t and wp_idx < len(waypoints):
         state = dynamics.state
@@ -295,6 +329,13 @@ def main() -> None:
                 ]
             ),
         )
+
+        # Keep UAV above terrain surface (mountains) with clearance
+        if terrain is not None:
+            ground = float(terrain.height_at(float(dynamics.position[0]), float(dynamics.position[1])))
+            min_z = ground + terrain_clearance
+            if dynamics.position[2] < min_z:
+                dynamics.position[2] = min_z
 
         traj_positions.append(dynamics.position.copy())
         t += dt

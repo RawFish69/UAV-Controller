@@ -17,9 +17,10 @@ Multi-purpose quadcopter control stack with:
 
 ## Demo (MPC + A*)
 
-Placeholder for the demo image you’ll add at `docs/astar_forest_0.png`:
-
-![forest path planner with A* (MPC)](docs/astar_forest_0.png)
+<p>
+  <img src="docs/astar_mountain_0.png" alt="Mountain path planner with A* (MPC)" width="49%">
+  <img src="docs/astar_forest_0.png" alt="Forest path planner with A* (MPC)" width="49%">
+</p>
 
 ## Architecture (high level)
 

@@ -16,7 +16,7 @@ import heapq
 import math
 import numpy as np
 
-from .terrain_wrapper import BoxObstacle, CylinderObstacle, is_point_in_collision
+from .terrain_wrapper import BoxObstacle, CylinderObstacle, HeightFieldTerrain, is_point_in_collision
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +161,11 @@ def _astar_2d(
             continue
         closed.add(current)
 
+        if iterations % 5000 == 0:
+            logger.info(
+                f"  A* progress: it={iterations}, open={len(open_set)}, closed={len(closed)}"
+            )
+
         for di, dj in neighbors:
             ni, nj = current[0] + di, current[1] + dj
             if not in_bounds(ni, nj):
@@ -292,6 +297,8 @@ def default_plan(
     goal = np.array([gx, gy, gz], dtype=float)
 
     planner_type = str(path_cfg.get("planner_type", "straight")).lower()
+    terrain = next((o for o in obstacles if isinstance(o, HeightFieldTerrain)), None)
+    terrain_clearance = float(path_cfg.get("terrain_clearance", 2.0))
     if planner_type == "astar":
         grid_res = float(path_cfg.get("grid_resolution", 2.0))
         inflation = float(path_cfg.get("collision_inflation", 0.5))
@@ -302,6 +309,8 @@ def default_plan(
         for i, p_xy in enumerate(xy_path):
             s = i / max(1, len(xy_path) - 1)
             z = (1.0 - s) * start[2] + s * goal[2]
+            if terrain is not None:
+                z = max(z, terrain.height_at(float(p_xy[0]), float(p_xy[1])) + terrain_clearance)
             waypoints.append(Waypoint(position=np.array([p_xy[0], p_xy[1], z], dtype=float)))
         return waypoints
     elif planner_type == "rrt":
@@ -325,10 +334,19 @@ def default_plan(
         for i, p_xy in enumerate(xy_path):
             s = i / max(1, len(xy_path) - 1)
             z = (1.0 - s) * start[2] + s * goal[2]
+            if terrain is not None:
+                z = max(z, terrain.height_at(float(p_xy[0]), float(p_xy[1])) + terrain_clearance)
             waypoints.append(Waypoint(position=np.array([p_xy[0], p_xy[1], z], dtype=float)))
         return waypoints
     else:
         logger.warning(f"  Using STRAIGHT-LINE planner (NO obstacle avoidance!)")
-        return straight_line_path(start, goal, num_waypoints=80)
+        waypoints = straight_line_path(start, goal, num_waypoints=80)
+        if terrain is not None:
+            for wp in waypoints:
+                wp.position[2] = max(
+                    float(wp.position[2]),
+                    terrain.height_at(float(wp.position[0]), float(wp.position[1])) + terrain_clearance,
+                )
+        return waypoints
 
 

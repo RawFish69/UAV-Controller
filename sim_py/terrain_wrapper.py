@@ -33,6 +33,7 @@ from terrain_generator.terrain_generator.plains_generator import (  # type: igno
 from terrain_generator.terrain_generator.obstacles import (  # type: ignore  # noqa: E402,E501
     BoxObstacle,
     CylinderObstacle,
+    HeightFieldTerrain,
     is_point_in_collision,
 )
 
@@ -72,7 +73,8 @@ def load_terrain_config(
         )
     yaml_path = Path(yaml_path)
 
-    with yaml_path.open("r") as f:
+    # Explicit UTF-8 to avoid Windows cp1252 decode issues
+    with yaml_path.open("r", encoding="utf-8") as f:
         raw = yaml.safe_load(f)
 
     # Expect the same top-level key as the ROS2 node.
@@ -96,9 +98,9 @@ def generate_terrain(
     cfg: TerrainConfig,
     forest_density_scale: float = 1.0,
     tree_height_scale: float = 1.0,
-) -> List[CylinderObstacle | BoxObstacle]:
+) -> List[CylinderObstacle | BoxObstacle | HeightFieldTerrain]:
     """Generate a list of obstacles using the existing generators."""
-    obstacles: List[CylinderObstacle | BoxObstacle] = []
+    obstacles: List[CylinderObstacle | BoxObstacle | HeightFieldTerrain] = []
 
     if cfg.terrain_type == "forest":
         p = cfg.forest or {}
@@ -123,6 +125,17 @@ def generate_terrain(
         num_peaks = int(p.get("num_peaks", 15))
         base_size_range = tuple(p.get("base_size_range", [3.0, 8.0]))
         height_range = tuple(p.get("height_range", [10.0, 30.0]))
+        grid_resolution = float(p.get("grid_resolution", 10.0))
+        ridge_count = int(p.get("ridge_count", 2))
+        ridge_chain_count = int(p.get("ridge_chain_count", 2))
+        ridge_chain_points = int(p.get("ridge_chain_points", 4))
+        ridge_chain_width = float(p.get("ridge_chain_width", 18.0))
+        ridge_chain_peak_spacing = float(p.get("ridge_chain_peak_spacing", 18.0))
+        ridge_chain_peak_boost = float(p.get("ridge_chain_peak_boost", 1.0))
+        pit_count = int(p.get("pit_count", 6))
+        pit_depth_range = tuple(p.get("pit_depth_range", [5.0, 20.0]))
+        steepness = float(p.get("steepness", 1.6))
+        min_height = float(p.get("min_height", 0.5))
 
         obstacles = generate_mountains(
             cfg.space_dim,
@@ -130,6 +143,17 @@ def generate_terrain(
             base_size_range=base_size_range,
             height_range=height_range,
             start_pos=cfg.start_pos,
+            grid_resolution=grid_resolution,
+            ridge_count=ridge_count,
+            ridge_chain_count=ridge_chain_count,
+            ridge_chain_points=ridge_chain_points,
+            ridge_chain_width=ridge_chain_width,
+            ridge_chain_peak_spacing=ridge_chain_peak_spacing,
+            ridge_chain_peak_boost=ridge_chain_peak_boost,
+            pit_count=pit_count,
+            pit_depth_range=pit_depth_range,
+            steepness=steepness,
+            min_height=min_height,
         )
 
     elif cfg.terrain_type == "plains":
@@ -158,6 +182,7 @@ __all__ = [
     "load_terrain_config",
     "CylinderObstacle",
     "BoxObstacle",
+    "HeightFieldTerrain",
     "is_point_in_collision",
 ]
 

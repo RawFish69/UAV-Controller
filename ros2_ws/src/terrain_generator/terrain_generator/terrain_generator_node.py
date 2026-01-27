@@ -33,6 +33,12 @@ class TerrainGeneratorNode(Node):
         self.declare_parameter('mountains.num_peaks', 15)
         self.declare_parameter('mountains.base_size_range', [3.0, 8.0])
         self.declare_parameter('mountains.height_range', [10.0, 30.0])
+        self.declare_parameter('mountains.grid_resolution', 10.0)
+        self.declare_parameter('mountains.ridge_count', 2)
+        self.declare_parameter('mountains.pit_count', 6)
+        self.declare_parameter('mountains.pit_depth_range', [5.0, 20.0])
+        self.declare_parameter('mountains.steepness', 1.6)
+        self.declare_parameter('mountains.min_height', 0.5)
         
         # Plains parameters
         self.declare_parameter('plains.num_obstacles', 10)
@@ -84,11 +90,23 @@ class TerrainGeneratorNode(Node):
             num_peaks = self.get_parameter('mountains.num_peaks').get_parameter_value().integer_value
             base_size_range = tuple(self.get_parameter('mountains.base_size_range').get_parameter_value().double_array_value)
             height_range = tuple(self.get_parameter('mountains.height_range').get_parameter_value().double_array_value)
+            grid_resolution = self.get_parameter('mountains.grid_resolution').get_parameter_value().double_value
+            ridge_count = self.get_parameter('mountains.ridge_count').get_parameter_value().integer_value
+            pit_count = self.get_parameter('mountains.pit_count').get_parameter_value().integer_value
+            pit_depth_range = tuple(self.get_parameter('mountains.pit_depth_range').get_parameter_value().double_array_value)
+            steepness = self.get_parameter('mountains.steepness').get_parameter_value().double_value
+            min_height = self.get_parameter('mountains.min_height').get_parameter_value().double_value
             
             obstacles = generate_mountains(
                 space_dim, num_peaks=num_peaks,
                 base_size_range=base_size_range, height_range=height_range,
-                start_pos=start_pos
+                start_pos=start_pos,
+                grid_resolution=grid_resolution,
+                ridge_count=ridge_count,
+                pit_count=pit_count,
+                pit_depth_range=pit_depth_range,
+                steepness=steepness,
+                min_height=min_height,
             )
             self.get_logger().info(f'Generated mountains with {len(obstacles)} obstacles')
         

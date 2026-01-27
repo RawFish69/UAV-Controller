@@ -82,6 +82,51 @@ class BoxObstacle:
         return True
 
 
+class HeightFieldTerrain:
+    """
+    2.5D terrain surface represented as a heightfield on an (x,y) grid.
+
+    This is *not* an XY obstacle for planning: when queried with a 2D point
+    (x,y), `is_inside()` returns False.
+
+    When queried with a 3D point (x,y,z), it reports collision if the point is
+    below the ground surface (plus optional inflation).
+    """
+
+    def __init__(self, xs: np.ndarray, ys: np.ndarray, heights: np.ndarray):
+        """
+        Args:
+            xs: 1D array of x sample locations (monotonic increasing)
+            ys: 1D array of y sample locations (monotonic increasing)
+            heights: 2D array of shape (len(xs), len(ys)) with ground height [m]
+        """
+        self.xs = np.asarray(xs, dtype=float)
+        self.ys = np.asarray(ys, dtype=float)
+        self.heights = np.asarray(heights, dtype=float)
+        if self.heights.shape != (self.xs.size, self.ys.size):
+            raise ValueError(
+                f"HeightFieldTerrain: heights shape {self.heights.shape} "
+                f"does not match (len(xs), len(ys))=({self.xs.size}, {self.ys.size})"
+            )
+
+    def height_at(self, x: float, y: float) -> float:
+        """Nearest-neighbor height lookup (fast, robust)."""
+        if self.xs.size == 0 or self.ys.size == 0:
+            return 0.0
+        i = int(np.clip(np.searchsorted(self.xs, x), 0, self.xs.size - 1))
+        j = int(np.clip(np.searchsorted(self.ys, y), 0, self.ys.size - 1))
+        return float(self.heights[i, j])
+
+    def is_inside(self, point, inflation: float = 0.0) -> bool:
+        # 2D queries should NOT treat terrain as an obstacle.
+        if len(point) == 2:
+            return False
+
+        x, y, z = float(point[0]), float(point[1]), float(point[2])
+        ground = self.height_at(x, y)
+        return z <= ground + float(inflation)
+
+
 def is_point_in_collision(point, obstacles, inflation=0.0):
     """
     Check if a point is in collision with any obstacle.
