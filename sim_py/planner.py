@@ -261,10 +261,146 @@ def _rrt_2d(
     return [start_xy, goal_xy]
 
 
+def _rrt_star_2d(
+    start_xy: np.ndarray,
+    goal_xy: np.ndarray,
+    space_dim: np.ndarray,
+    obstacles: list[CylinderObstacle | BoxObstacle | HeightFieldTerrain],
+    step_size: float,
+    goal_tolerance: float,
+    max_iterations: int,
+    inflation: float,
+    rewire_radius: float | None = None,
+    goal_sample_rate: float = 0.1,
+) -> List[np.ndarray]:
+    """2D RRT* in XY plane (rewiring for lower-cost paths)."""
+    start_xy = np.asarray(start_xy, dtype=float)
+    goal_xy = np.asarray(goal_xy, dtype=float)
+    space_dim = np.asarray(space_dim, dtype=float)
+
+    nodes: List[np.ndarray] = [start_xy]
+    parents: Dict[int, int] = {0: -1}
+    costs: Dict[int, float] = {0: 0.0}
+
+    step_size = float(step_size)
+    goal_tolerance = float(goal_tolerance)
+    max_iterations = int(max_iterations)
+    inflation = float(inflation)
+    goal_sample_rate = float(goal_sample_rate)
+
+    def sample() -> np.ndarray:
+        if np.random.rand() < goal_sample_rate:
+            return goal_xy
+        return np.array(
+            [
+                np.random.uniform(0.0, space_dim[0]),
+                np.random.uniform(0.0, space_dim[1]),
+            ],
+            dtype=float,
+        )
+
+    def nearest(p: np.ndarray) -> int:
+        dists = [np.linalg.norm(n - p) for n in nodes]
+        return int(np.argmin(dists))
+
+    def steer(p_from: np.ndarray, p_to: np.ndarray) -> np.ndarray:
+        direction = p_to - p_from
+        dist = np.linalg.norm(direction)
+        if dist <= step_size:
+            return p_to
+        return p_from + direction / dist * step_size
+
+    def collision_free(p_from: np.ndarray, p_to: np.ndarray) -> bool:
+        steps = max(2, int(np.ceil(np.linalg.norm(p_to - p_from) / max(step_size / 2.0, 1e-6))))
+        for s in np.linspace(0.0, 1.0, steps):
+            p = (1.0 - s) * p_from + s * p_to
+            if is_point_in_collision(p, obstacles, inflation=inflation):
+                return False
+        return True
+
+    def near_indices(p: np.ndarray, radius: float) -> List[int]:
+        r = float(radius)
+        idxs: List[int] = []
+        for i, n in enumerate(nodes):
+            if np.linalg.norm(n - p) <= r:
+                idxs.append(i)
+        return idxs
+
+    best_goal_idx: int | None = None
+    best_goal_cost = float("inf")
+
+    for it in range(max_iterations):
+        if it > 0 and it % 5000 == 0:
+            logger.info(f"  RRT*: it={it}, nodes={len(nodes)}, best_goal_cost={best_goal_cost:.1f}")
+
+        p_rand = sample()
+        idx_near = nearest(p_rand)
+        p_near = nodes[idx_near]
+        p_new = steer(p_near, p_rand)
+
+        if not collision_free(p_near, p_new):
+            continue
+
+        # Choose a parent among nearby nodes that minimizes cost
+        if rewire_radius is None:
+            # Standard RRT* radius heuristic in 2D: r(n) ~ gamma * sqrt(log(n)/n)
+            n = max(2, len(nodes))
+            gamma = 2.0 * step_size
+            r = gamma * math.sqrt(math.log(n) / n)
+            r = max(r, step_size * 1.5)
+        else:
+            r = float(rewire_radius)
+
+        near = near_indices(p_new, r)
+        parent = idx_near
+        best_cost = costs[idx_near] + float(np.linalg.norm(p_new - p_near))
+
+        for j in near:
+            pj = nodes[j]
+            c = costs[j] + float(np.linalg.norm(p_new - pj))
+            if c < best_cost and collision_free(pj, p_new):
+                best_cost = c
+                parent = j
+
+        nodes.append(p_new)
+        new_idx = len(nodes) - 1
+        parents[new_idx] = parent
+        costs[new_idx] = best_cost
+
+        # Rewire nearby nodes through this new node if cheaper
+        for j in near:
+            if j == 0 or j == new_idx:
+                continue
+            pj = nodes[j]
+            c_through = best_cost + float(np.linalg.norm(pj - p_new))
+            if c_through + 1e-9 < costs.get(j, float("inf")) and collision_free(p_new, pj):
+                parents[j] = new_idx
+                costs[j] = c_through
+
+        # Track best node within goal tolerance (keeps optimizing even after first reach)
+        d_goal = float(np.linalg.norm(p_new - goal_xy))
+        if d_goal <= goal_tolerance:
+            if best_cost < best_goal_cost:
+                best_goal_cost = best_cost
+                best_goal_idx = new_idx
+
+    # Reconstruct best path if reached; else fallback
+    if best_goal_idx is None:
+        return [start_xy, goal_xy]
+
+    path_points: List[np.ndarray] = [nodes[best_goal_idx]]
+    cur = best_goal_idx
+    while parents[cur] != -1:
+        cur = parents[cur]
+        path_points.append(nodes[cur])
+    path_points.reverse()
+    return path_points
+
+
 def default_plan(
     space_dim: np.ndarray,
     start_pos: np.ndarray,
-    obstacles: list[CylinderObstacle | BoxObstacle],
+    obstacles: list[CylinderObstacle | BoxObstacle | HeightFieldTerrain],
     path_cfg: dict | None = None,
 ) -> List[Waypoint]:
     """
@@ -304,6 +440,8 @@ def default_plan(
         goal = np.array([gx, gy, gz], dtype=float)
 
     planner_type = str(path_cfg.get("planner_type", "straight")).lower()
+    if planner_type in {"rrt*", "rrtstar", "rrt_star"}:
+        planner_type = "rrtstar"
     terrain = next((o for o in obstacles if isinstance(o, HeightFieldTerrain)), None)
     terrain_clearance = float(path_cfg.get("terrain_clearance", 2.0))
     if planner_type == "astar":
@@ -337,6 +475,36 @@ def default_plan(
             inflation=inflation,
         )
         logger.info(f"  RRT path has {len(xy_path)} waypoints")
+        waypoints: List[Waypoint] = []
+        for i, p_xy in enumerate(xy_path):
+            s = i / max(1, len(xy_path) - 1)
+            z = (1.0 - s) * start[2] + s * goal[2]
+            if terrain is not None:
+                z = max(z, terrain.height_at(float(p_xy[0]), float(p_xy[1])) + terrain_clearance)
+            waypoints.append(Waypoint(position=np.array([p_xy[0], p_xy[1], z], dtype=float)))
+        return waypoints
+    elif planner_type == "rrtstar":
+        step_size = float(path_cfg.get("rrt_step_size", 5.0))
+        goal_tol = float(path_cfg.get("goal_tolerance", 2.0))
+        max_iter = int(path_cfg.get("rrt_max_iterations", 2000))
+        inflation = float(path_cfg.get("collision_inflation", 0.5))
+        rewire_radius = path_cfg.get("rrt_star_rewire_radius", None)
+        rewire_radius_f = None if rewire_radius is None else float(rewire_radius)
+        goal_sample_rate = float(path_cfg.get("rrt_goal_sample_rate", 0.1))
+        logger.info(f"  Running RRT* planner (avoiding {len(obstacles)} obstacles)...")
+        xy_path = _rrt_star_2d(
+            start[:2],
+            goal[:2],
+            space_dim,
+            obstacles,
+            step_size=step_size,
+            goal_tolerance=goal_tol,
+            max_iterations=max_iter,
+            inflation=inflation,
+            rewire_radius=rewire_radius_f,
+            goal_sample_rate=goal_sample_rate,
+        )
+        logger.info(f"  RRT* path has {len(xy_path)} waypoints")
         waypoints: List[Waypoint] = []
         for i, p_xy in enumerate(xy_path):
             s = i / max(1, len(xy_path) - 1)

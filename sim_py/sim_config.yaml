@@ -16,14 +16,16 @@ path:
   end_xy_offset_range: 100.0
 
   # Path planner settings
-  # planner_type: "straight" | "astar" | "rrt"
-  planner_type: "rrt"
+  # planner_type: "straight" | "astar" | "rrt" | "rrt*"
+  planner_type: "rrt*"
   grid_resolution: 1.5       # For A* (smaller = finer grid, better avoidance)
   collision_inflation: 1.5    # Safety margin around obstacles [m] (increase to stay farther)
   terrain_clearance: 2.0      # For mountains: altitude margin over terrain [m]
   rrt_step_size: 5.0         # For RRT
   rrt_max_iterations: 2000
   goal_tolerance: 2.0        # RRT goal radius [m]
+  rrt_goal_sample_rate: 0.1  # RRT/RRT*: probability of sampling the goal
+  rrt_star_rewire_radius:    # RRT*: set (meters) or leave blank for auto
 
 controller:
   # Default high-level controller: "pid", "lqr", or "mpc"
