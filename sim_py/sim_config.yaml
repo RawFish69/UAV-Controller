@@ -1,0 +1,64 @@
+path:
+  # Fractions of the terrain box for start/end positions
+  # Values are multiplied by space_dim (default: [100, 100, 50])
+  # 0.0 = start of map, 1.0 = end of map, >1.0 = outside map
+  start_relative_x: 0.0
+  start_relative_y: 0.0
+  start_relative_z: 0.05
+
+  end_relative_x: 1.0  # Use 0.95-0.98 to stay within map, or >1.0 to go outside
+  end_relative_y: 1.0
+  end_relative_z: "auto"  # "auto" picks a random height in [0, tallest tree]
+
+  # Path planner settings
+  # planner_type: "straight" | "astar" | "rrt"
+  planner_type: "astar"
+  grid_resolution: 1.5       # For A* (smaller = finer grid, better avoidance)
+  collision_inflation: 1.5    # Safety margin around obstacles [m] (increase to stay farther)
+  rrt_step_size: 5.0         # For RRT
+  rrt_max_iterations: 2000
+  goal_tolerance: 2.0        # RRT goal radius [m]
+
+controller:
+  # Default high-level controller: "pid", "lqr", or "mpc"
+  controller_type: "pid"
+
+  # Simulation horizon and timestep
+  sim_time: 240       # [s]  (increase to let it travel far)
+  dt: 0.01              # [s]
+
+  # Max acceleration magnitude allowed for any controller
+  acc_max: 50.0         # [m/s^2]
+
+  pid:
+    kp: 1.5
+    kd: 2.0
+
+  lqr:
+    q_pos: 10.0
+    q_vel: 2.0
+    r_acc: 1.0
+
+  mpc:
+    q_pos: 8.0
+    q_vel: 2.0
+    r_acc: 10.0
+
+visual:
+  # Forest density multiplier (1.0 = as in ROS terrain YAML)
+  forest_density_scale: 30.0
+
+  # Forest tree appearance
+  tree_linewidth: 5.0
+  tree_alpha: 0.9
+  # Scale factor on forest tree height range from terrain_params.yaml
+  tree_height_scale: 4.0
+  # Scale the space Z dimension relative to tallest tree
+  height_ratio: 1.2
+  # Reference trunk radius used for linewidth scaling
+  tree_radius_ref: 1.0
+
+  # UAV trajectory appearance
+  path_linewidth: 2.0
+  marker_size: 40.0
+

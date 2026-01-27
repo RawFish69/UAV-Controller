@@ -1,7 +1,7 @@
 terrain_generator:
   ros__parameters:
     terrain_type: 'forest'  # Options: 'forest', 'mountains', 'plains'
-    space_dim: [100.0, 100.0, 50.0]  # [x, y, z] in meters
+    space_dim: [250.0, 250.0, 50.0]  # [x, y, z] in meters
     start_pos: [0.0, 0.0, 0.0]  # Start position to avoid obstacles
     
     # Forest parameters

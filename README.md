@@ -1,42 +1,98 @@
-# UAV-Controller
+# UAV Controller + Path Planning
 
-Multi-purpose control system for quadcopters. Supports autonomous control, hardware integration, and simulation.
+Multi-purpose quadcopter control stack with:
+- **ROS 2 control + safety pipeline** (hardware and RViz simulation)
+- **Standalone Python simulator** (no ROS) for fast iteration on planners/controllers
+- **ESP32 TX/RX link** for manual flight + autonomous command relay
 
-## Features
+## What’s in this repo
 
-- **Controllers**: PID (cascaded), LQR (optimal), MPC (WIP), RL (WIP)
-- **Safety**: Multi-layer validation, slew limiting, timeout watchdog
-- **Hardware**: Custom TX/RX with universal protocol support (CRSF, SBUS, PPM, iBus, FrSky)
-- **TX/RX System**: Hybrid IMU+Joystick control, ESP-NOW wireless, multi-protocol receiver
-- **Simulation**: 200Hz dynamics with RViz
+- **Controllers**
+  - **ROS 2**: PID / LQR / MPC (work-in-progress depending on package)
+  - **Python-only** (`sim_py`): PID / LQR / MPC position controllers
+- **Path planning (Python-only)**: straight / A* / RRT planners
+- **Terrain generation**: forest / mountains / plains (shared between ROS and Python sim)
+- **Safety**: validation, limiting, watchdog (`safety_gate`)
+- **Hardware link**: CRSF adapter + ESP-NOW based TX/RX + protocol bridging
 
-## Architecture
+## Demo (MPC + A*)
 
-**Manual Flight**:
+Placeholder for the demo image you’ll add at `docs/astar_forest_0.png`:
+
+![forest path planner with A* (MPC)](docs/astar_forest_0.png)
+
+## Architecture (high level)
+
+**Manual Flight**
+
 ```
-TX (IMU+Joystick) → ESP-NOW → RX → Protocol Bridge → FC
-                                     (CRSF/SBUS/PPM/iBus/FrSky)
+TX (IMU+Joystick) → ESP-NOW → RX → Protocol Bridge → Flight Controller
+                                      (CRSF/SBUS/PPM/iBus/FrSky)
 ```
-No computer. TX_RX handles everything. Universal receiver works with any flight controller.
 
-<img src="docs/brushed.jpg" alt="Brushed Motor Quadcopter" width="400">
+**Autonomous (Hardware-in-the-loop)**
 
-*Test brushed quad with my custom TX RX.*
-
-
-**Autonomous**:
 ```
 ROS Controllers → Safety Gate → CRSF Adapter → UDP → TX → ESP-NOW → RX → Protocol → FC
 ```
-Computer runs algorithms. TX relays commands. Protocol configurable for your FC.
 
-**Simulation**:
-```
-Controllers → Safety Gate → Simulator → RViz
-```
-Software only. Algorithm development and tuning.
+**Simulation**
 
-## Quick Start
+- **ROS 2 + RViz**:
+
+```
+Controllers → Safety Gate → sim_dyn → RViz
+```
+
+- **Python-only (no ROS)**:
+
+```
+Planner → Controller → Point-mass dynamics → Matplotlib 3D
+```
+
+## Quick start (Python-only simulator)
+
+```bash
+pip install -r sim_py/requirements.txt
+python -m sim_py.run_sim
+```
+
+Useful overrides:
+
+```bash
+# Switch controller
+python -m sim_py.run_sim --controller mpc
+
+# Change terrain type (still uses the terrain config YAML unless overridden)
+python -m sim_py.run_sim --terrain forest
+
+# Override sim time / dt (if you pass these, they override sim_config.yaml)
+python -m sim_py.run_sim --sim-time 240 --dt 0.01
+
+# Use a different terrain config file
+python -m sim_py.run_sim --terrain-config ros2_ws/src/terrain_generator/config/terrain_params.yaml
+```
+
+### Python sim configuration
+
+- **Main config**: `sim_py/sim_config.yaml`
+  - **Start/goal**: `path.start_relative_*`, `path.end_relative_*`
+    - `end_relative_z: "auto"` picks a random goal altitude in \([0, \text{tallest tree}]\)
+  - **Planner**: `path.planner_type` = `straight` | `astar` | `rrt`
+  - **Runtime**: `controller.sim_time`, `controller.dt`
+  - **Terrain appearance / scaling**:
+    - `visual.forest_density_scale`: scales forest density (clamped to 1.0)
+    - `visual.tree_height_scale`: scales sampled tree heights
+    - `visual.height_ratio`: sets map height as `height_ratio * tallest_tree`
+    - `visual.tree_radius_ref`: reference radius for drawing thicker/thinner trunks
+
+- **Terrain config** (shared with ROS):
+  - `ros2_ws/src/terrain_generator/config/terrain_params.yaml`
+  - Forest obstacle count is mainly set by:
+    - `forest.grid_size` and `forest.density`
+    - expected trees ≈ \(grid\_size^2 \cdot density\)
+
+## Quick start (ROS 2)
 
 ### Build
 
@@ -46,126 +102,65 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
-### Run Simulation
+### Run RViz simulation
 
 ```bash
-ros2 launch sim_dyn sim_pid.launch.py  # PID
-ros2 launch sim_dyn sim_lqr.launch.py  # LQR
+ros2 launch sim_dyn sim_pid.launch.py
+ros2 launch sim_dyn sim_lqr.launch.py
+ros2 launch sim_dyn sim_mpc.launch.py
 ```
 
-### Run Autonomous (Hardware)
+### Run autonomous (hardware)
 
-TX firmware needs UDP modification. See docs/HARDWARE.md.
+TX firmware needs UDP modification. See `docs/HARDWARE.md`.
 
 ```bash
 ./scripts/run_crsf_link_pid.sh transport:=udp udp_host:=192.168.4.1
 ```
 
-## Packages
+## Packages / folders
 
-| Package | Type | Purpose |
-|---------|------|---------|
-| `controllers_pid` | C++ | Cascaded PID with anti-windup |
-| `controllers_lqr` | C++ | State-space LQR controller |
-| `safety_gate` | C++ | Validation, limiting, routing |
-| `adapters_crsf` | Python | ROS → TX bridge (UDP/Serial) |
-| `sim_dyn` | Python | Dynamics + RViz |
-| `common_msgs` | Messages | Custom message types |
-| `TX_RX` | ESP32 | Custom transmitter/receiver system |
-| `Utils` | Python | Universal protocol visualizer & monitor |
+| Path | Type | Purpose |
+|------|------|---------|
+| `ros2_ws/src/controllers_pid` | C++ | Cascaded PID controller |
+| `ros2_ws/src/controllers_lqr` | C++ | LQR controller |
+| `ros2_ws/src/controllers_mpc` | C++ | MPC controller |
+| `ros2_ws/src/safety_gate` | C++ | Validation, limiting, routing |
+| `ros2_ws/src/adapters_crsf` | Python | ROS ↔ TX bridge (UDP/Serial) |
+| `ros2_ws/src/sim_dyn` | Python | Dynamics + RViz integration |
+| `ros2_ws/src/terrain_generator` | Python | Terrain + obstacles (forest/mountains/plains) |
+| `ros2_ws/src/common_msgs` | ROS msgs | Custom message types |
+| `sim_py` | Python | Standalone planner/controller/dynamics/visualization |
+| `ESPNOW_TX` | ESP32 | ESP-NOW based TX/RX firmware |
+| `LoRa_TX` | ESP32 | LoRa TX experiments |
+| `Utils` | Python | Protocol decoder/monitor + tools |
 
-## Topics
+## ROS topics (common)
 
 | Topic | Type | Description |
 |-------|------|-------------|
-| `/cmd/body_rate_thrust` | BodyRateThrust | Controller output |
-| `/cmd/final/body_rate_thrust` | BodyRateThrust | After safety (sim) |
-| `/cmd/final/rc` | VirtualRC | After safety (hardware) |
-| `/state/odom` | Odometry | Current state |
-| `/state/attitude` | QuaternionStamped | Orientation |
-| `/state/angular_velocity` | Vector3Stamped | Body rates |
+| `/cmd/body_rate_thrust` | `BodyRateThrust` | Controller output |
+| `/cmd/final/body_rate_thrust` | `BodyRateThrust` | After safety (sim) |
+| `/cmd/final/rc` | `VirtualRC` | After safety (hardware) |
+| `/state/odom` | `Odometry` | State estimate |
+| `/state/attitude` | `QuaternionStamped` | Orientation |
+| `/state/angular_velocity` | `Vector3Stamped` | Body rates |
 
-## Configuration
+## Docs
 
-Config files in each package's `config/` directory:
-
-- `pid_params.yaml` - Gains, anti-windup, limits
-- `lqr_params.yaml` - K matrix, system model
-- `safety_params.yaml` - Safety limits, timeouts
-- `crsf_params.yaml` - TX connection settings
-- `sim_params.yaml` - Dynamics model parameters
-
-## Testing
-
-```bash
-cd ros2_ws
-colcon test
-colcon test-result --verbose
-```
-
-## Monitoring
-
-```bash
-ros2 node list
-ros2 topic hz /cmd/body_rate_thrust
-ros2 topic echo /state/odom
-./scripts/check_sim.sh
-```
-
-## Troubleshooting
-
-**Quad falling in sim**: Check `c1=2.0` in `sim_params.yaml`  
-**Nodes not starting**: Run `source ros2_ws/install/setup.bash`  
-**Oscillations**: Reduce PID kp or increase kd gains
-
-## Documentation
-
-- **📖 [docs/SOFTWARE_GUIDE.md](docs/SOFTWARE_GUIDE.md)** - **Software guide** (start here!)
-- **🚀 [docs/EXAMPLE_USAGE.md](docs/EXAMPLE_USAGE.md)** - **Example: Using controllers with terrain**
-- **docs/HARDWARE.md** - Detailed TX integration for autonomous mode
-- **TX_RX/README.md** - Complete TX/RX system documentation
-- **Utils/README.md** - Universal protocol visualizer & monitor
-
-## TX_RX System
-
-Custom ESP32-based transmitter and receiver for manual flight control:
-
-
-**Transmitter Features:**
-- Hybrid IMU (BNO085/MPU6050) + Joystick control
-- ESP-NOW wireless (low latency)
-- Configurable sensitivity and update rates
-
-**Receiver Features:**
-- **Universal Protocol Support**: Works with any flight controller
-  - ✅ CRSF (Crossfire/ELRS) - Betaflight, INAV
-  - ✅ SBUS (Futaba) - Universal compatibility  
-  - ✅ PPM - Traditional flight controllers
-  - ✅ iBus (FlySky) - FlySky receivers
-  - ✅ FrSky S.PORT - FrSky telemetry systems
-- Easy protocol switching via single config file
-- Automatic failsafe handling
-
-**Quick Setup:**
-1. Edit `TX_RX/src/config.h` to select protocol
-2. Flash transmitter and receiver
-3. Configure flight controller to match protocol
-
-See `TX_RX/README.md` for complete documentation.
+- **[docs/SOFTWARE_GUIDE.md](docs/SOFTWARE_GUIDE.md)**: software guide (start here)
+- **[docs/EXAMPLE_USAGE.md](docs/EXAMPLE_USAGE.md)**: terrain + controller examples
+- **`docs/HARDWARE.md`**: TX integration for autonomous mode
+- **`ESPNOW_TX/README.md`**: TX/RX firmware details
+- **`Utils/README.md`**: protocol monitor / decoder tooling
 
 ## Notes
 
-- ROS 2 Humble required for autonomous control
-- TX_RX handles manual flight (no ROS/computer needed)
-- Universal receiver works with Betaflight, INAV, ArduPilot, and traditional FCs
-- MPC and RL controllers under development (lab collaboration)
+- **ROS 2 Humble** is required for ROS-based control + RViz simulation
+- The **Python-only sim** (`sim_py`) is designed for fast iteration (no ROS needed)
 
----
+## Hardware photo
 
-## TODOs
-- Add LoRa module for TX & RX
-- Field test with manual control & tuning guide
-- Hardware demo
-- MPC & RL 
+<img src="docs/brushed.jpg" alt="Brushed Motor Quadcopter" width="400">
 
-
+*Test brushed quad with the custom TX/RX.*
