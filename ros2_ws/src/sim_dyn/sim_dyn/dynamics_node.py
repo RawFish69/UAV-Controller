@@ -60,6 +60,8 @@ class DynamicsNode(Node):
         self.cmd_body_rates = np.array([0.0, 0.0, 0.0])
         self.cmd_thrust = self.hover_thrust  # Start with hover thrust
         self.last_cmd_time = self.get_clock().now()
+        self.start_time = self.get_clock().now()
+        self.startup_grace_period = 5.0  # seconds
 
         # Publishers
         self.pub_odom = self.create_publisher(Odometry, '/state/odom', 10)
@@ -108,10 +110,18 @@ class DynamicsNode(Node):
         """RK4 integration step."""
         dt = 1.0 / self.sim_rate
 
-        # Check for command timeout (1 second)
-        elapsed = (self.get_clock().now() - self.last_cmd_time).nanoseconds / 1e9
-        if elapsed > 1.0:
-            # No commands, fall with zero thrust
+        # Check for command timeout
+        elapsed_since_cmd = (self.get_clock().now() - self.last_cmd_time).nanoseconds / 1e9
+        elapsed_since_start = (self.get_clock().now() - self.start_time).nanoseconds / 1e9
+        
+        # During startup grace period, maintain hover thrust even without commands
+        if elapsed_since_start < self.startup_grace_period:
+            # Startup grace period - keep hover thrust if no commands yet
+            if elapsed_since_cmd > 0.5:  # Brief timeout during startup
+                self.cmd_thrust = self.hover_thrust
+                self.cmd_body_rates = np.array([0.0, 0.0, 0.0])
+        elif elapsed_since_cmd > 1.0:
+            # After grace period, normal timeout behavior
             self.cmd_thrust = 0.0
             self.cmd_body_rates = np.array([0.0, 0.0, 0.0])
 

@@ -26,7 +26,7 @@ echo "RViz: $USE_RVIZ"
 cd "$(dirname "$0")/../ros2_ws"
 
 # Source ROS 2
-source /opt/ros/humble/setup.bash 2>/dev/null || true
+for distro in jazzy humble foxy; do if [ -f "/opt/ros/$distro/setup.bash" ]; then source "/opt/ros/$distro/setup.bash"; break; fi; done
 
 # Build if needed
 if [ ! -d "install" ]; then

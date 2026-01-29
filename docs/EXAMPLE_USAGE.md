@@ -12,6 +12,22 @@ This example shows how to:
 3. Visualize the UAV navigating through the terrain
 4. Monitor and analyze the flight
 
+## Setup and Build
+
+**Note:** You do **not** need a Python virtual environment for the ROS 2 workspace.
+
+Before running the examples, ensure you have built the workspace:
+
+```bash
+cd ros2_ws
+# Ensure ROS is sourced (if not in your .bashrc)
+# source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install
+source install/setup.bash
+```
+
+Alternatively, the helper scripts in the `scripts/` directory will handle sourcing and building automatically.
+
 ---
 
 ## Quick Example: Forest Terrain with MPC Controller
@@ -21,7 +37,8 @@ This example shows how to:
 Open a terminal and launch the terrain generator:
 
 ```bash
-cd ~/UAV-Controller/ros2_ws
+# Navigate to the ros2_ws directory in this repo
+cd ros2_ws
 source install/setup.bash
 
 # Generate forest terrain
@@ -53,7 +70,7 @@ terrain_generator:
 In a **new terminal**, launch the MPC controller simulation:
 
 ```bash
-cd ~/UAV-Controller/ros2_ws
+cd ros2_ws
 source install/setup.bash
 
 # Launch MPC controller with visualization
@@ -94,7 +111,7 @@ RViz should automatically open. If not, you can add displays manually:
 In a **third terminal**, monitor the flight:
 
 ```bash
-cd ~/UAV-Controller/ros2_ws
+cd ros2_ws
 source install/setup.bash
 
 # Monitor position
@@ -116,7 +133,7 @@ ros2 topic hz /cmd/body_rate_thrust
 
 **Terminal 1 - Generate Mountains:**
 ```bash
-cd ~/UAV-Controller/ros2_ws
+cd ros2_ws
 source install/setup.bash
 
 # Generate mountain terrain
@@ -125,7 +142,7 @@ ros2 launch terrain_generator terrain_generator.launch.py terrain_type:=mountain
 
 **Terminal 2 - Run LQR Controller:**
 ```bash
-cd ~/UAV-Controller/ros2_ws
+cd ros2_ws
 source install/setup.bash
 
 # Launch simulation
@@ -142,7 +159,7 @@ ros2 topic echo /state/odom --no-arr
 
 **Terminal 1 - Generate Plains:**
 ```bash
-cd ~/UAV-Controller/ros2_ws
+cd ros2_ws
 source install/setup.bash
 
 ros2 launch terrain_generator terrain_generator.launch.py terrain_type:=plains
@@ -150,7 +167,7 @@ ros2 launch terrain_generator terrain_generator.launch.py terrain_type:=plains
 
 **Terminal 2 - Run PID Headless:**
 ```bash
-cd ~/UAV-Controller/ros2_ws
+cd ros2_ws
 source install/setup.bash
 
 # Headless mode (no RViz)
@@ -185,7 +202,7 @@ terrain_generator:
 
 **Step 2: Rebuild and Launch**
 ```bash
-cd ~/UAV-Controller/ros2_ws
+cd ros2_ws
 colcon build --packages-select terrain_generator
 source install/setup.bash
 
@@ -207,12 +224,12 @@ The repository includes helper scripts for easier launching:
 **Generate Terrain + Run Simulation:**
 ```bash
 # Terminal 1: Terrain
-cd ~/UAV-Controller/ros2_ws
+cd ros2_ws
 source install/setup.bash
 ros2 launch terrain_generator terrain_generator.launch.py terrain_type:=forest
 
 # Terminal 2: Simulation
-cd ~/UAV-Controller
+# (From repository root)
 ./scripts/run_sim_mpc.sh  # With visualization
 # or
 ./scripts/run_sim_mpc.sh headless  # Without visualization

@@ -99,7 +99,10 @@ The quadcopter should hover at 1m altitude in RViz (or run silently in headless 
 # Navigate to workspace
 cd ros2_ws
 
+# NOTE: No Python virtual environment is required for the ROS 2 workspace.
+
 # Build all packages
+# Ensure your ROS 2 distro is sourced (e.g. source /opt/ros/jazzy/setup.bash)
 colcon build --symlink-install
 
 # Source the workspace (do this every time you open a new terminal)

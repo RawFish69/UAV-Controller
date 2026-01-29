@@ -223,11 +223,11 @@ ControlIncrement MPCCore::solveQP(const Eigen::MatrixXd& Hdb,
   try {
     Eigen::LDLT<Eigen::MatrixXd> ldlt(Hdb);
     if (ldlt.info() == Eigen::Success) {
-      Eigen::VectorXd du_full = -ldlt.solve(ft.transpose());
+      Eigen::VectorXd du_full = -ldlt.solve(ft);
       du = du_full.head<3>();  // Take first control increment
     } else {
       // Fallback: use pseudo-inverse
-      Eigen::VectorXd du_full = -(Hdb.completeOrthogonalDecomposition().solve(ft.transpose()));
+      Eigen::VectorXd du_full = -(Hdb.completeOrthogonalDecomposition().solve(ft));
       du = du_full.head<3>();
     }
   } catch (...) {
