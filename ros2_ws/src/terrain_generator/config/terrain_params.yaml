@@ -9,7 +9,7 @@ terrain_generator:
       grid_size: 10
       radius_range: [0.5, 1.5]  # Tree radius range (m)
       height_range: [5.0, 15.0]  # Tree height range (m)
-      density: 0.7  # Probability of tree in each grid cell (0-1)
+      density: 0.9  # Probability of tree in each grid cell (0-1)
     
     # Mountains parameters
     mountains:

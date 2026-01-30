@@ -54,7 +54,7 @@ controller:
 
 visual:
   # Forest density multiplier (1.0 = as in ROS terrain YAML)
-  forest_density_scale: 30.0
+  forest_density_scale: 1.0
 
   # Forest tree appearance
   tree_linewidth: 5.0
