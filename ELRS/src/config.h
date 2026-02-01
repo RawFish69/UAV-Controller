@@ -9,20 +9,21 @@
 #define ELRS_UID_LEN 6
 
 // ------------------------- Radio (SX1280) pins -------------------------
-// Default: common 2.4 GHz module wiring; adjust for your hardware.
+// ESP32-C3 available GPIOs only: 0, 1, 4, 5, 6, 7, 10, 18, 19
 #define RADIO_PIN_NSS   7
-#define RADIO_PIN_RST  3
-#define RADIO_PIN_BUSY 2
-#define RADIO_PIN_DIO1 4
-#define RADIO_PIN_SCK  6
-#define RADIO_PIN_MISO 5
-#define RADIO_PIN_MOSI 10
+#define RADIO_PIN_RST   18
+#define RADIO_PIN_BUSY  19
+#define RADIO_PIN_DIO1  4
+#define RADIO_PIN_SCK   6
+#define RADIO_PIN_MISO  5
+#define RADIO_PIN_MOSI  10
 
 // ------------------------- UART (CRSF) -------------------------
 // TX: computer sends CRSF here. RX: output CRSF to flight controller.
+// Uses GPIO 0, 1 (Serial1). Avoid holding GPIO 0 low at boot (bootloader).
 #define CRSF_UART_BAUD 420000
-#define CRSF_PIN_TX    21
-#define CRSF_PIN_RX    20
+#define CRSF_PIN_TX    0
+#define CRSF_PIN_RX    1
 
 // ------------------------- Rate -------------------------
 // Packet interval in microseconds (500 Hz = 2000 us)
