@@ -17,6 +17,23 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 from .terrain_wrapper import BoxObstacle, CylinderObstacle, HeightFieldTerrain
 
 
+def _quat_wxyz_to_rotmat(quat_wxyz: np.ndarray) -> np.ndarray:
+    """Convert quaternion [w, x, y, z] into a 3x3 rotation matrix."""
+    q = np.asarray(quat_wxyz, dtype=float).reshape(4)
+    n = np.linalg.norm(q)
+    if n < 1e-9:
+        return np.eye(3)
+    w, x, y, z = q / n
+    return np.array(
+        [
+            [1.0 - 2.0 * (y * y + z * z), 2.0 * (x * y - z * w), 2.0 * (x * z + y * w)],
+            [2.0 * (x * y + z * w), 1.0 - 2.0 * (x * x + z * z), 2.0 * (y * z - x * w)],
+            [2.0 * (x * z - y * w), 2.0 * (y * z + x * w), 1.0 - 2.0 * (x * x + y * y)],
+        ],
+        dtype=float,
+    )
+
+
 def plot_simulation(
     trajectory: np.ndarray,
     obstacles: Iterable[CylinderObstacle | BoxObstacle],
@@ -26,6 +43,8 @@ def plot_simulation(
     planned_waypoints: np.ndarray | None = None,
     goal_position: np.ndarray | None = None,
     planner_type: str | None = None,
+    attitude_quats: np.ndarray | None = None,
+    backend_name: str | None = None,
     show: bool = True,
 ) -> plt.Figure:
     """
@@ -57,6 +76,14 @@ def plot_simulation(
     planned_alpha = float(visual_cfg.get("planned_alpha", 0.8))
     terrain_alpha = float(visual_cfg.get("terrain_alpha", 0.45))
     terrain_cmap = str(visual_cfg.get("terrain_cmap", "terrain"))
+    base_span = 100.0
+    if space_dim is not None:
+        space_dim_arr = np.asarray(space_dim, dtype=float).reshape(3)
+        base_span = float(max(space_dim_arr[0], space_dim_arr[1], 1.0))
+    auto_quad_len = max(1.2, 0.02 * base_span)
+    quad_arm_length = float(visual_cfg.get("quad_arm_length", auto_quad_len))
+    attitude_axis_scale = float(visual_cfg.get("attitude_axis_scale", quad_arm_length * 0.6))
+    quad_max_frames = int(visual_cfg.get("quad_max_frames", 35))
 
     # Plot trajectory
     ax.plot(
@@ -116,6 +143,132 @@ def plot_simulation(
                 alpha=0.5,
                 zorder=4,
             )
+
+    # Optional rotorcraft pose overlay from quaternion trajectory.
+    if attitude_quats is not None:
+        q_traj = np.asarray(attitude_quats, dtype=float)
+        if q_traj.ndim == 2 and q_traj.shape[1] == 4:
+            n = min(len(traj), len(q_traj))
+            if n > 0:
+                stride = max(1, n // max(1, quad_max_frames))
+                first_label = True
+                for i in range(0, n, stride):
+                    q = q_traj[i]
+                    if not np.all(np.isfinite(q)):
+                        continue
+                    p = traj[i]
+                    R = _quat_wxyz_to_rotmat(q)
+
+                    # Body axes in world frame.
+                    ex = R[:, 0]
+                    ey = R[:, 1]
+                    ez = R[:, 2]
+
+                    # Draw a simple quad "X"/"+" body from x/y axes.
+                    arm_x0 = p - ex * quad_arm_length * 0.5
+                    arm_x1 = p + ex * quad_arm_length * 0.5
+                    arm_y0 = p - ey * quad_arm_length * 0.5
+                    arm_y1 = p + ey * quad_arm_length * 0.5
+
+                    ax.plot(
+                        [arm_x0[0], arm_x1[0]],
+                        [arm_x0[1], arm_x1[1]],
+                        [arm_x0[2], arm_x1[2]],
+                        color="black",
+                        linewidth=2.4,
+                        alpha=0.95,
+                        label="Quad pose" if first_label else None,
+                        zorder=6,
+                    )
+                    ax.plot(
+                        [arm_y0[0], arm_y1[0]],
+                        [arm_y0[1], arm_y1[1]],
+                        [arm_y0[2], arm_y1[2]],
+                        color="black",
+                        linewidth=2.4,
+                        alpha=0.95,
+                        zorder=6,
+                    )
+
+                    # Draw body-frame axes (X red, Y green, Z blue).
+                    ax.quiver(
+                        p[0], p[1], p[2],
+                        ex[0], ex[1], ex[2],
+                        length=attitude_axis_scale,
+                        color="red",
+                        alpha=0.7,
+                        linewidth=1.0,
+                    )
+                    ax.quiver(
+                        p[0], p[1], p[2],
+                        ey[0], ey[1], ey[2],
+                        length=attitude_axis_scale,
+                        color="lime",
+                        alpha=0.7,
+                        linewidth=1.0,
+                    )
+                    ax.quiver(
+                        p[0], p[1], p[2],
+                        ez[0], ez[1], ez[2],
+                        length=attitude_axis_scale,
+                        color="dodgerblue",
+                        alpha=0.7,
+                        linewidth=1.0,
+                    )
+                    first_label = False
+
+                # Always highlight the final quad pose to make it easy to spot.
+                qf = q_traj[n - 1]
+                if np.all(np.isfinite(qf)):
+                    pf = traj[n - 1]
+                    Rf = _quat_wxyz_to_rotmat(qf)
+                    exf = Rf[:, 0]
+                    eyf = Rf[:, 1]
+                    ezf = Rf[:, 2]
+
+                    ax.plot(
+                        [pf[0] - exf[0] * quad_arm_length * 0.8, pf[0] + exf[0] * quad_arm_length * 0.8],
+                        [pf[1] - exf[1] * quad_arm_length * 0.8, pf[1] + exf[1] * quad_arm_length * 0.8],
+                        [pf[2] - exf[2] * quad_arm_length * 0.8, pf[2] + exf[2] * quad_arm_length * 0.8],
+                        color="yellow",
+                        linewidth=3.0,
+                        alpha=1.0,
+                        label="Final quad",
+                        zorder=8,
+                    )
+                    ax.plot(
+                        [pf[0] - eyf[0] * quad_arm_length * 0.8, pf[0] + eyf[0] * quad_arm_length * 0.8],
+                        [pf[1] - eyf[1] * quad_arm_length * 0.8, pf[1] + eyf[1] * quad_arm_length * 0.8],
+                        [pf[2] - eyf[2] * quad_arm_length * 0.8, pf[2] + eyf[2] * quad_arm_length * 0.8],
+                        color="yellow",
+                        linewidth=3.0,
+                        alpha=1.0,
+                        zorder=8,
+                    )
+                    ax.quiver(
+                        pf[0], pf[1], pf[2],
+                        exf[0], exf[1], exf[2],
+                        length=attitude_axis_scale * 1.8,
+                        color="red",
+                        alpha=1.0,
+                        linewidth=2.0,
+                    )
+                    ax.quiver(
+                        pf[0], pf[1], pf[2],
+                        eyf[0], eyf[1], eyf[2],
+                        length=attitude_axis_scale * 1.8,
+                        color="lime",
+                        alpha=1.0,
+                        linewidth=2.0,
+                    )
+                    ax.quiver(
+                        pf[0], pf[1], pf[2],
+                        ezf[0], ezf[1], ezf[2],
+                        length=attitude_axis_scale * 1.8,
+                        color="dodgerblue",
+                        alpha=1.0,
+                        linewidth=2.0,
+                    )
 
     # Plot obstacles
     if terrain_type == "forest":
@@ -185,7 +338,8 @@ def plot_simulation(
     ax.set_zlabel("Z [m]")
     title_terrain = (terrain_type or "terrain").capitalize()
     title_planner = (planner_type or "planner").upper()
-    ax.set_title(f"{title_terrain} path planner with {title_planner}")
+    title_backend = f" [{str(backend_name).upper()}]" if backend_name else ""
+    ax.set_title(f"{title_terrain} path planner with {title_planner}{title_backend}")
 
     if space_dim is not None:
         ax.set_xlim(0.0, float(space_dim[0]))
@@ -201,5 +355,3 @@ def plot_simulation(
         plt.show()
 
     return fig
-
-

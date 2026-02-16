@@ -18,8 +18,8 @@ Multi-purpose quadcopter control stack with:
 ## Demo (A*, RRT, RRT* path planner)
 
 <p>
-  <img src="docs/mountain_astar.png" alt="Mountain path planner with A*" width="49%">
-  <img src="docs/mountain_rrt.png" alt="Mountain path planner with RRT" width="49%">
+  <img src="docs/forest_rotor.png" alt="Forest RotorPy demo with quad pose overlay" width="49%">
+  <img src="docs/mountain_rotor.png" alt="Mountain RotorPy demo with quad pose overlay" width="49%">
 </p>
 
 <p>
@@ -53,14 +53,23 @@ Controllers → Safety Gate → sim_dyn → RViz
 - **Python-only (no ROS)**:
 
 ```
-Planner → Controller → Point-mass dynamics → Matplotlib 3D
+Planner → Controller → Dynamics backend (pointmass/rotorpy) → Matplotlib 3D
 ```
 
 ## Quick start (Python-only simulator)
 
 ```bash
-pip install -r sim_py/requirements.txt
+./scripts/setup_sim_py_venv.sh
+source sim_py/.venv/bin/activate
 python -m sim_py.run_sim
+```
+
+Optional RotorPy backend:
+
+```bash
+./scripts/setup_sim_py_venv.sh --with-rotorpy
+source sim_py/.venv/bin/activate
+python -m sim_py.run_sim --backend rotorpy
 ```
 
 Useful overrides:
@@ -77,6 +86,9 @@ python -m sim_py.run_sim --sim-time 240 --dt 0.01
 
 # Use a different terrain config file
 python -m sim_py.run_sim --terrain-config ros2_ws/src/terrain_generator/config/terrain_params.yaml
+
+# Select dynamics backend (default: pointmass)
+python -m sim_py.run_sim --backend rotorpy
 ```
 
 ### Python sim configuration
@@ -84,8 +96,9 @@ python -m sim_py.run_sim --terrain-config ros2_ws/src/terrain_generator/config/t
 - **Main config**: `sim_py/sim_config.yaml`
   - **Start/goal**: `path.start_relative_*`, `path.end_relative_*`
     - `end_relative_z: "auto"` picks a random goal altitude in \([0, \text{tallest tree}]\)
-  - **Planner**: `path.planner_type` = `straight` | `astar` | `rrt`
+  - **Planner**: `path.planner_type` = `straight` | `astar` | `rrt` | `rrt*`
   - **Runtime**: `controller.sim_time`, `controller.dt`
+  - **Backend**: `simulation.backend` = `pointmass` | `rotorpy` (CLI `--backend` overrides)
   - **Terrain appearance / scaling**:
     - `visual.forest_density_scale`: scales forest density (clamped to 1.0)
     - `visual.tree_height_scale`: scales sampled tree heights
@@ -171,6 +184,7 @@ The `gps/` project is an ESP32 GPS bring-up/telemetry module using `Adafruit_GPS
 
 - **[docs/SOFTWARE_GUIDE.md](docs/SOFTWARE_GUIDE.md)**: software guide (start here)
 - **[docs/EXAMPLE_USAGE.md](docs/EXAMPLE_USAGE.md)**: terrain + controller examples
+- **`sim_py/INFO.md`**: standalone simulator architecture + usage
 - **`docs/HARDWARE.md`**: TX integration for autonomous mode
 - **`ESPNOW_TX/README.md`**: TX/RX firmware details
 - **`gps/DASHBOARD.md`**: GPS serial dashboard usage
