@@ -1,0 +1,3 @@
+# Optional dependencies for the RotorPy backend.
+# Base simulator deps remain in sim_py/requirements.txt.
+rotorpy>=2.0.0

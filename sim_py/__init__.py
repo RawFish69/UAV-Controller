@@ -1,14 +1,7 @@
+"""Standalone Python UAV simulator package.
+
+Architecture highlights:
+- Plugin-style registries for planners, controllers, and dynamics backends
+- Backward-compatible CLI entrypoint via ``python -m sim_py.run_sim``
+- Optional RotorPy backend with import guards
 """
-Standalone Python-based UAV simulator (no ROS2 required).
-
-This package provides:
-- Terrain generation reusing the existing terrain_generator Python code
-- Simple UAV dynamics model
-- Basic controllers (starting with PID)
-- A lightweight planner and 3D visualization
-
-Run the simulator via:
-
-    python -m sim_py.run_sim
-"""
-

@@ -3,7 +3,7 @@
 ### 1) Install Python deps
 
 ```bash
-cd /home/cy/Drones/UAV-Controller/gps
+cd gps
 python3 -m venv .venv
 . .venv/bin/activate
 python3 -m pip install -r requirements-dashboard.txt

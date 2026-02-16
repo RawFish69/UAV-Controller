@@ -32,7 +32,7 @@ controller:
   controller_type: "pid"
 
   # Simulation horizon and timestep
-  sim_time: 480       # [s]  (increase to let it travel far)
+  sim_time: 240       # [s]  (increase to let it travel far)
   dt: 0.01              # [s]
 
   # Max acceleration magnitude allowed for any controller
@@ -79,3 +79,16 @@ visual:
   terrain_alpha: 0.45
   terrain_cmap: "terrain"
 
+simulation:
+  # Dynamics backend: "pointmass" (default) or "rotorpy"
+  backend: "pointmass"
+
+  # Optional deterministic seed for planner/randomized start-goal offsets.
+  # Remove or set null for non-deterministic runs.
+  # seed: 123
+
+  rotorpy:
+    # v1 backend currently supports RotorPy's crazyflie params.
+    vehicle: "crazyflie"
+    aero: true
+    enable_ground: false
