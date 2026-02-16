@@ -1,5 +1,7 @@
 """
 Usage:
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-dashboard.txt
 .venv/bin/streamlit run gps_dashboard.py -- --port /dev/ttyACM0 --baud 115200
 """
 

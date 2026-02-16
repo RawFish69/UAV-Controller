@@ -124,6 +124,20 @@ TX firmware needs UDP modification. See `docs/HARDWARE.md`.
 ./scripts/run_crsf_link_pid.sh transport:=udp udp_host:=192.168.4.1
 ```
 
+## GPS module (ESP32)
+
+The `gps/` project is an ESP32 GPS bring-up/telemetry module using `Adafruit_GPS`.
+
+- Supports PMTK/NMEA modules (Adafruit Ultimate GPS / MTK33xx style)
+- Supports u-blox modules with UBX configuration (while parsing NMEA output)
+- Auto-probes common UART baud rates (9600/38400/115200), parses fix/satellite/SNR metrics, and prints diagnostics over serial
+- Build/flash protocol options:
+  - `pio run -d gps -e gps_auto -t upload` (AUTO detect PMTK vs UBLOX)
+  - `pio run -d gps -e gps_pmtk -t upload` (force PMTK mode)
+  - `pio run -d gps -e gps_ublox -t upload` (force UBLOX mode)
+
+<img src="docs/gps_demo_1.png" alt="GPS telemetry demo output" width="700">
+
 ## Packages / folders
 
 | Path | Type | Purpose |
@@ -139,6 +153,7 @@ TX firmware needs UDP modification. See `docs/HARDWARE.md`.
 | `sim_py` | Python | Standalone planner/controller/dynamics/visualization |
 | `ESPNOW_TX` | ESP32 | ESP-NOW based TX/RX firmware |
 | `LoRa_TX` | ESP32 | LoRa TX experiments |
+| `gps` | ESP32 | GPS telemetry module (Adafruit_GPS / NMEA + PMTK + UBX support) |
 | `Utils` | Python | Protocol decoder/monitor + tools |
 
 ## ROS topics (common)
@@ -158,6 +173,7 @@ TX firmware needs UDP modification. See `docs/HARDWARE.md`.
 - **[docs/EXAMPLE_USAGE.md](docs/EXAMPLE_USAGE.md)**: terrain + controller examples
 - **`docs/HARDWARE.md`**: TX integration for autonomous mode
 - **`ESPNOW_TX/README.md`**: TX/RX firmware details
+- **`gps/DASHBOARD.md`**: GPS serial dashboard usage
 - **`Utils/README.md`**: protocol monitor / decoder tooling
 
 ## Notes

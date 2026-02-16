@@ -13,6 +13,8 @@ __pycache__/
 *~
 
 # Python
+.venv/
+venv/
 *.egg-info/
 dist/
 *.egg
@@ -41,4 +43,3 @@ Thumbs.db
 # Backup files
 *.bak
 *~
-
