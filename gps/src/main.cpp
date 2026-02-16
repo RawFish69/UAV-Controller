@@ -1,20 +1,19 @@
 #include <Arduino.h>
 #include <Adafruit_GPS.h>
 #include <string.h>
+#include <stdint.h>
 
 /*
-  GPS Protocol Scope (current + planned)
-  --------------------------------------
-  Current firmware in this file is for Adafruit_GPS + NMEA modules that support
-  PMTK commands (for example Adafruit Ultimate GPS / MTK33xx style modules).
-  The setup sequence below uses PMTK_* commands, so this build is intended for
-  that protocol family.
+  GPS Protocol Support
+  --------------------
+  This firmware supports two GPS protocol families:
+  - PMTK/NMEA (Adafruit Ultimate GPS / MTK33xx style modules)
+  - u-blox UBX modules (kept in NMEA output mode, configured via UBX binary)
 
-  Planned support:
-  - Add a u-blox-specific implementation for modules that use UBX protocol.
-  - At flash/build time, let the user select which GPS protocol target to use.
-  - Optionally provide a combined firmware variant that can handle both
-    protocol families with detection/config selection at startup.
+  Build-time selection is controlled by GPS_PROTOCOL_SELECT:
+  - 0 = AUTO  (try PMTK probe, then UBX probe)
+  - 1 = PMTK  (force PMTK init commands)
+  - 2 = UBLOX (force UBX init commands)
 */
 
 // ESP32 RX pin (connect to GPS TX)
@@ -23,11 +22,27 @@
 #define GPS_TX_PIN  8
 
 #define GPS_BAUD_DEFAULT 9600
+#define GPS_PROTOCOL_AUTO 0
+#define GPS_PROTOCOL_PMTK 1
+#define GPS_PROTOCOL_UBLOX 2
+
+#ifndef GPS_PROTOCOL_SELECT
+#define GPS_PROTOCOL_SELECT GPS_PROTOCOL_AUTO
+#endif
 
 // Use HardwareSerial (Serial1) for the GPS
 Adafruit_GPS GPS(&Serial1);
 unsigned long lastHeartbeatMs = 0;
 uint32_t activeGpsBaud = GPS_BAUD_DEFAULT;
+
+enum class GpsProtocol : uint8_t {
+  AUTO = GPS_PROTOCOL_AUTO,
+  PMTK = GPS_PROTOCOL_PMTK,
+  UBLOX = GPS_PROTOCOL_UBLOX,
+  UNKNOWN = 255
+};
+
+GpsProtocol activeProtocol = GpsProtocol::UNKNOWN;
 
 struct GsvTelemetry {
   int satsInView = -1;
@@ -100,14 +115,161 @@ static bool probeGpsBaud(uint32_t baud, uint32_t timeoutMs) {
   GPS.begin(baud);
 
   unsigned long start = millis();
+  uint8_t prev = 0;
   while (millis() - start < timeoutMs) {
-    char c = GPS.read();
-    if (c == '$') {
-      return true;
+    while (Serial1.available() > 0) {
+      uint8_t c = (uint8_t)Serial1.read();
+      if (c == '$') return true;                  // NMEA stream detected
+      if (prev == 0xB5 && c == 0x62) return true; // UBX stream detected
+      prev = c;
     }
     delay(1);
   }
   return false;
+}
+
+static const char *protocolName(GpsProtocol protocol) {
+  switch (protocol) {
+    case GpsProtocol::AUTO: return "AUTO";
+    case GpsProtocol::PMTK: return "PMTK";
+    case GpsProtocol::UBLOX: return "UBLOX";
+    default: return "UNKNOWN";
+  }
+}
+
+static void drainGpsRx(uint32_t durationMs = 150) {
+  unsigned long start = millis();
+  while (millis() - start < durationMs) {
+    while (Serial1.available() > 0) {
+      (void)Serial1.read();
+    }
+    delay(1);
+  }
+}
+
+static bool waitForAsciiTag(const char *tag, uint32_t timeoutMs) {
+  char line[128];
+  int idx = 0;
+  unsigned long start = millis();
+  while (millis() - start < timeoutMs) {
+    while (Serial1.available() > 0) {
+      char c = (char)Serial1.read();
+      if (c == '\r') continue;
+      if (c == '\n') {
+        line[idx] = '\0';
+        if (idx > 0 && strstr(line, tag)) return true;
+        idx = 0;
+      } else if (idx < (int)sizeof(line) - 1) {
+        line[idx++] = c;
+      }
+    }
+    delay(1);
+  }
+  return false;
+}
+
+static bool waitForUbxHeader(uint8_t msgClass, uint8_t msgId, uint32_t timeoutMs) {
+  uint8_t state = 0;
+  unsigned long start = millis();
+  while (millis() - start < timeoutMs) {
+    while (Serial1.available() > 0) {
+      uint8_t c = (uint8_t)Serial1.read();
+      switch (state) {
+        case 0: state = (c == 0xB5) ? 1 : 0; break;
+        case 1: state = (c == 0x62) ? 2 : 0; break;
+        case 2: state = (c == msgClass) ? 3 : (c == 0xB5 ? 1 : 0); break;
+        case 3:
+          if (c == msgId) return true;
+          state = (c == 0xB5) ? 1 : 0;
+          break;
+        default: state = 0; break;
+      }
+    }
+    delay(1);
+  }
+  return false;
+}
+
+static void sendUbx(uint8_t msgClass, uint8_t msgId, const uint8_t *payload, uint16_t length) {
+  uint8_t ckA = 0;
+  uint8_t ckB = 0;
+  auto updateChecksum = [&](uint8_t b) {
+    ckA = (uint8_t)(ckA + b);
+    ckB = (uint8_t)(ckB + ckA);
+  };
+
+  updateChecksum(msgClass);
+  updateChecksum(msgId);
+  updateChecksum((uint8_t)(length & 0xFF));
+  updateChecksum((uint8_t)(length >> 8));
+  for (uint16_t i = 0; i < length; i++) {
+    updateChecksum(payload ? payload[i] : 0);
+  }
+
+  Serial1.write((uint8_t)0xB5);
+  Serial1.write((uint8_t)0x62);
+  Serial1.write(msgClass);
+  Serial1.write(msgId);
+  Serial1.write((uint8_t)(length & 0xFF));
+  Serial1.write((uint8_t)(length >> 8));
+  for (uint16_t i = 0; i < length; i++) {
+    Serial1.write(payload ? payload[i] : 0);
+  }
+  Serial1.write(ckA);
+  Serial1.write(ckB);
+}
+
+static bool probePmtkModule() {
+  drainGpsRx();
+  GPS.sendCommand("$PMTK605*31");  // Query firmware release
+  return waitForAsciiTag("$PMTK705", 900);
+}
+
+static bool probeUbxModule() {
+  drainGpsRx();
+  sendUbx(0x0A, 0x04, nullptr, 0);  // MON-VER poll
+  return waitForUbxHeader(0x0A, 0x04, 900);
+}
+
+static GpsProtocol selectProtocol() {
+  #if GPS_PROTOCOL_SELECT == GPS_PROTOCOL_PMTK
+    return GpsProtocol::PMTK;
+  #elif GPS_PROTOCOL_SELECT == GPS_PROTOCOL_UBLOX
+    return GpsProtocol::UBLOX;
+  #else
+    if (probePmtkModule()) return GpsProtocol::PMTK;
+    if (probeUbxModule()) return GpsProtocol::UBLOX;
+    return GpsProtocol::UNKNOWN;
+  #endif
+}
+
+static void configurePmtk() {
+  GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_ALLDATA);
+  GPS.sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);
+  GPS.sendCommand(PMTK_API_SET_FIX_CTL_1HZ);
+}
+
+static void configureUbx() {
+  // UBX-CFG-RATE: 1Hz navigation update rate.
+  const uint8_t rate1Hz[] = {0xE8, 0x03, 0x01, 0x00, 0x01, 0x00};
+  sendUbx(0x06, 0x08, rate1Hz, sizeof(rate1Hz));
+  delay(20);
+
+  // UBX-CFG-MSG (NMEA sentence output rates on UART):
+  // keep GGA/GSA/GSV/RMC at 1Hz, disable less useful lines to reduce clutter.
+  const uint8_t msgCfg[][3] = {
+    {0xF0, 0x00, 1}, // GGA
+    {0xF0, 0x01, 0}, // GLL
+    {0xF0, 0x02, 1}, // GSA
+    {0xF0, 0x03, 1}, // GSV
+    {0xF0, 0x04, 1}, // RMC
+    {0xF0, 0x05, 0}, // VTG
+    {0xF0, 0x08, 0}  // ZDA
+  };
+  for (size_t i = 0; i < (sizeof(msgCfg) / sizeof(msgCfg[0])); i++) {
+    sendUbx(0x06, 0x01, msgCfg[i], sizeof(msgCfg[i]));
+    delay(10);
+  }
 }
 
 static void parseGsvSentence(const char *nmea) {
@@ -179,6 +341,8 @@ void setup() {
   // Auto-detect common UART rates so we can recover from unknown module settings.
   if (probeGpsBaud(9600, 2500)) {
     activeGpsBaud = 9600;
+  } else if (probeGpsBaud(38400, 2500)) {
+    activeGpsBaud = 38400;
   } else if (probeGpsBaud(115200, 2500)) {
     activeGpsBaud = 115200;
   } else {
@@ -195,10 +359,19 @@ void setup() {
   Serial.print(F("GPS UART active baud: "));
   Serial.println(activeGpsBaud);
 
-  // Include richer quality data (GSA/GSV) so we can inspect reception quality.
-  GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_ALLDATA);
-  GPS.sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);
-  GPS.sendCommand(PMTK_API_SET_FIX_CTL_1HZ);
+  activeProtocol = selectProtocol();
+  Serial.print(F("GPS protocol mode: "));
+  Serial.println(protocolName(activeProtocol));
+
+  if (activeProtocol == GpsProtocol::PMTK) {
+    configurePmtk();
+    Serial.println(F("Applied PMTK configuration"));
+  } else if (activeProtocol == GpsProtocol::UBLOX) {
+    configureUbx();
+    Serial.println(F("Applied UBX configuration"));
+  } else {
+    Serial.println(F("Protocol probe inconclusive; running passive NMEA mode"));
+  }
 }
 
 void loop() {
