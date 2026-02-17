@@ -1,0 +1,21 @@
+FROM python:3.12-slim
+
+SHELL ["/bin/bash", "-lc"]
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    ca-certificates \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python -m pip install --no-cache-dir --upgrade pip && \
+    python -m pip install --no-cache-dir platformio
+
+WORKDIR /workspace
+COPY ESPNOW_TX /workspace/ESPNOW_TX
+COPY LoRa_TX /workspace/LoRa_TX
+COPY gps /workspace/gps
+
+CMD ["bash"]
