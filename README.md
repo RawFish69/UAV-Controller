@@ -137,6 +137,32 @@ TX firmware needs UDP modification. See `docs/HARDWARE.md`.
 ./scripts/run_crsf_link_pid.sh transport:=udp udp_host:=192.168.4.1
 ```
 
+## Docker quick start
+
+Dockerfiles are split by workflow:
+
+- ROS 2 Humble: `docker/Dockerfile.humble`
+- Python simulator/tools: `docker/Dockerfile.sim`
+- Firmware tooling (PlatformIO): `docker/Dockerfile.firmware`
+
+Build and run:
+
+```bash
+# ROS 2 image
+docker build -f docker/Dockerfile.humble --target ros-dev -t uav-controller:ros-humble .
+docker run --rm -it --network=host --privileged -v "$PWD":/workspace uav-controller:ros-humble
+
+# sim_py + Python tools image
+docker build -f docker/Dockerfile.sim -t uav-controller:sim .
+docker run --rm -it -v "$PWD":/workspace uav-controller:sim
+
+# firmware / PlatformIO image
+docker build -f docker/Dockerfile.firmware -t uav-controller:firmware .
+docker run --rm -it -v "$PWD":/workspace uav-controller:firmware
+```
+
+More details: `docker/README.md`.
+
 ## GPS module (ESP32)
 
 The `gps/` project is an ESP32 GPS bring-up/telemetry module using `Adafruit_GPS`.
@@ -185,6 +211,7 @@ The `gps/` project is an ESP32 GPS bring-up/telemetry module using `Adafruit_GPS
 - **[docs/SOFTWARE_GUIDE.md](docs/SOFTWARE_GUIDE.md)**: software guide (start here)
 - **[docs/EXAMPLE_USAGE.md](docs/EXAMPLE_USAGE.md)**: terrain + controller examples
 - **`sim_py/INFO.md`**: standalone simulator architecture + usage
+- **`docker/README.md`**: Docker build/run commands by workflow
 - **`docs/HARDWARE.md`**: TX integration for autonomous mode
 - **`ESPNOW_TX/README.md`**: TX/RX firmware details
 - **`gps/DASHBOARD.md`**: GPS serial dashboard usage

@@ -1,47 +1,68 @@
-FROM osrf/ros:humble-desktop-full
+FROM osrf/ros:humble-desktop-full AS base
 
-# Install dependencies
+SHELL ["/bin/bash", "-lc"]
+ARG DEBIAN_FRONTEND=noninteractive
+ARG USERNAME=ros
+ARG USER_UID=1000
+ARG USER_GID=1000
+
 RUN apt-get update && apt-get install -y \
     python3-pip \
+    python3-venv \
+    python3-setuptools \
+    python3-dev \
     python3-serial \
     python3-colcon-common-extensions \
     python3-rosdep \
+    build-essential \
+    cmake \
     libeigen3-dev \
     clang-format \
     git \
+    vim \
+    wget \
+    curl \
+    sudo \
     mesa-utils \
     libgl1-mesa-glx \
     libgl1-mesa-dri \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python packages
-RUN pip3 install --upgrade pip && \
-    pip3 install \
-    flake8 \
-    autopep8 \
-    pytest \
-    numpy \
-    scipy
+RUN python3 -m pip install --no-cache-dir --upgrade pip && \
+    python3 -m pip install --no-cache-dir \
+      flake8 \
+      autopep8 \
+      pytest
 
-# Create workspace
+RUN mkdir -p /workspace/ros2_ws/src
+
+RUN groupadd --gid ${USER_GID} ${USERNAME} && \
+    useradd --uid ${USER_UID} --gid ${USER_GID} -m ${USERNAME} && \
+    echo ${USERNAME} ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/${USERNAME} && \
+    chmod 0440 /etc/sudoers.d/${USERNAME}
+
+RUN echo 'source /opt/ros/humble/setup.bash' >> /etc/bash.bashrc && \
+    echo 'if [ -f /workspace/ros2_ws/install/setup.bash ]; then source /workspace/ros2_ws/install/setup.bash; fi' >> /etc/bash.bashrc
+
 WORKDIR /workspace
+
+FROM base AS ros-dev
 COPY ros2_ws /workspace/ros2_ws
-
-# Initialize rosdep and install dependencies
-RUN rosdep update && \
-    rosdep install --from-paths ros2_ws/src --ignore-src -r -y
-
-# Build workspace with proper Python package installation
-RUN . /opt/ros/humble/setup.sh && \
-    cd ros2_ws && \
-    pip3 install -e src/sim_dyn/ && \
-    pip3 install -e src/adapters_crsf/ && \
+RUN rosdep update || true
+RUN source /opt/ros/humble/setup.bash && \
+    rosdep install --from-paths /workspace/ros2_ws/src --ignore-src -r -y && \
+    cd /workspace/ros2_ws && \
     colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
 
-# Setup entrypoint
-RUN echo '#!/bin/bash\nset -e\nsource /opt/ros/humble/setup.bash\nif [ -f /workspace/ros2_ws/install/setup.bash ]; then\n  source /workspace/ros2_ws/install/setup.bash\nfi\nexec "$@"' > /entrypoint.sh && \
-    chmod +x /entrypoint.sh
+RUN printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'set -e' \
+    'source /opt/ros/humble/setup.bash' \
+    'if [ -f /workspace/ros2_ws/install/setup.bash ]; then' \
+    '  source /workspace/ros2_ws/install/setup.bash' \
+    'fi' \
+    'exec "$@"' > /entrypoint.sh && chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["bash"]
-
+USER ros
