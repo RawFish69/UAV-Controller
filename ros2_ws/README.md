@@ -12,13 +12,13 @@ Status:
 - Fast headless simulation backend (`sim_fast`)
 
 Primary target:
-- Linux (Ubuntu) with ROS 2 Humble
+- Linux (Ubuntu) with ROS 2 Humble (22.04) or ROS 2 Jazzy (24.04)
 - Gazebo Sim + `ros_gz` integration
 
 ## Prerequisites (Linux)
 
 Install:
-- ROS 2 Humble
+- ROS 2 Humble (Ubuntu 22.04) or ROS 2 Jazzy (Ubuntu 24.04)
 - Gazebo Sim (Harmonic recommended with Humble, per `ros_gz` compatibility docs)
 - `ros_gz_bridge`
 - `ros_gz_sim`
@@ -26,10 +26,26 @@ Install:
 
 Repo tooling already includes a Humble devcontainer / Docker path (`docker/Dockerfile.humble`).
 
+Ubuntu 24.04 / ROS 2 Jazzy example:
+
+```bash
+sudo apt update
+sudo apt install -y \
+  ros-jazzy-desktop \
+  python3-colcon-common-extensions \
+  python3-rosdep \
+  ros-jazzy-ros-gz \
+  ros-jazzy-ros-gz-bridge \
+  ros-jazzy-ros-gz-sim
+```
+
+If `gz` is still missing after that, install Gazebo Sim (Harmonic) from the Gazebo package repository so the `gz` CLI is on `PATH`.
+
 ## Build
 
 ```bash
 cd ros2_ws
+source /opt/ros/jazzy/setup.bash   # or /opt/ros/humble/setup.bash on 22.04
 colcon build --symlink-install
 source install/setup.bash
 ```
@@ -39,7 +55,7 @@ source install/setup.bash
 Terminal 1 (sim + air unit):
 ```bash
 cd ros2_ws
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash   # or /opt/ros/humble/setup.bash
 source install/setup.bash
 ros2 launch sim_gazebo bringup.launch.py
 ```
@@ -47,7 +63,7 @@ ros2 launch sim_gazebo bringup.launch.py
 Terminal 2 (ground station + offboard planner + monitor):
 ```bash
 cd ros2_ws
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash   # or /opt/ros/humble/setup.bash
 source install/setup.bash
 ros2 launch ground_station ground.launch.py start_planner:=true start_monitor:=true
 ```
@@ -55,7 +71,7 @@ ros2 launch ground_station ground.launch.py start_planner:=true start_monitor:=t
 Terminal 3 (demo mission):
 ```bash
 cd ros2_ws
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash   # or /opt/ros/humble/setup.bash
 source install/setup.bash
 ros2 run ground_station ground_station_demo_mission
 ```
@@ -63,7 +79,7 @@ ros2 run ground_station ground_station_demo_mission
 Manual override at any time (example):
 ```bash
 cd ros2_ws
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash   # or /opt/ros/humble/setup.bash
 source install/setup.bash
 ros2 run ground_station ground_station_cli -- --mode manual --manual-override --arm --vx 0.5 --yaw-rate 0.2 --duration-sec 5
 ```
@@ -76,7 +92,7 @@ ros2 run ground_station ground_station_cli -- --mode hover --arm --duration-sec 
 Keyboard teleop (interactive terminal):
 ```bash
 cd ros2_ws
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash   # or /opt/ros/humble/setup.bash
 source install/setup.bash
 ros2 run ground_station ground_station_keyboard_teleop
 ```
@@ -115,7 +131,7 @@ ros2 run ground_station ground_station_demo_mission --ros-args -p planning_mode:
 Offboard planner:
 ```bash
 cd ros2_ws
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash   # or /opt/ros/humble/setup.bash
 source install/setup.bash
 ros2 launch sim_fast bringup.launch.py start_offboard_planner:=true start_onboard_planner:=false start_demo:=true demo_planning_mode:=offboard
 ```
@@ -191,8 +207,9 @@ Gazebo bridged topics:
 
 - `gz: command not found`
   - Install Gazebo Sim and ensure `gz` is on `PATH`.
+  - On Ubuntu 24.04 + Jazzy, also install `ros-jazzy-ros-gz-bridge` and `ros-jazzy-ros-gz-sim`.
 - `ros_gz_bridge` node fails to start
-  - Verify `ros-humble-ros-gz-bridge` / `ros-humble-ros-gz-sim` are installed.
+  - Verify `ros-<distro>-ros-gz-bridge` / `ros-<distro>-ros-gz-sim` are installed (e.g. `jazzy` or `humble`).
 - No motion in Gazebo
   - Check `/X3/enable` and `/X3/gazebo/command/twist` bridges are active.
   - Run smoke publisher: `ros2 run sim_bridge gz_smoke_cmd_node`
