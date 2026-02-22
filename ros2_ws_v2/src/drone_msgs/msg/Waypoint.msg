@@ -1,0 +1,4 @@
+geometry_msgs/Pose pose
+float32 hold_time_sec
+float32 acceptance_radius_m
+float32 desired_speed_mps

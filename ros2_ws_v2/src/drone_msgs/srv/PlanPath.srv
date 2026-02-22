@@ -1,0 +1,9 @@
+geometry_msgs/Pose start
+geometry_msgs/Pose goal
+string planner_type
+string terrain_profile
+float32 collision_inflation_m
+---
+bool success
+string message
+drone_msgs/Trajectory trajectory

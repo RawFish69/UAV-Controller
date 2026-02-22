@@ -1,0 +1,9 @@
+std_msgs/Header header
+geometry_msgs/Pose pose
+geometry_msgs/Twist twist
+float32 battery_percent
+uint8 current_mode
+uint8 planning_mode
+bool armed
+bool manual_override_active
+string status_text

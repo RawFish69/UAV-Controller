@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+      <package format="3">
+        <name>sim_fast</name>
+        <version>0.1.0</version>
+        <description>Fast headless simulation launches using sim_bridge and air_unit</description>
+        <maintainer email="maintainer@example.com">Maintainer</maintainer>
+        <license>MIT</license>
+
+        <buildtool_depend>ament_python</buildtool_depend>
+
+        <exec_depend>launch</exec_depend>
+<exec_depend>launch_ros</exec_depend>
+<exec_depend>sim_bridge</exec_depend>
+<exec_depend>air_unit</exec_depend>
+<exec_depend>planner</exec_depend>
+<exec_depend>ground_station</exec_depend>
+
+        <test_depend>ament_flake8</test_depend>
+        <test_depend>ament_pep257</test_depend>
+        <test_depend>python3-pytest</test_depend>
+
+        <export>
+          <build_type>ament_python</build_type>
+        </export>
+      </package>
