@@ -23,7 +23,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--controller",
         type=str,
-        choices=["pid", "lqr", "mpc"],
+        choices=["pid", "lqr", "mpc", "teleop"],
         default="pid",
         help="Controller type to use.",
     )

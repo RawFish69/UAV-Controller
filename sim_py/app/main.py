@@ -8,6 +8,7 @@ from ..core.config import normalize_sim_config
 from ..core.runner import run_simulation
 from ..visualizer import plot_simulation
 from .cli import parse_args
+from .teleop import run_teleop_session
 
 
 logging.basicConfig(
@@ -26,6 +27,17 @@ def main() -> None:
     logger.info("Starting UAV Simulation")
     logger.info("=" * 60)
     logger.info(f"Loading config from: {cfg_norm.sim_config_path}")
+
+    if str(cfg_norm.controller_name).lower() == "teleop":
+        try:
+            run_teleop_session(cfg_norm)
+        except RuntimeError as exc:
+            msg = str(exc)
+            if "requirements-rotorpy.txt" in msg:
+                logger.error(msg)
+                raise SystemExit(1)
+            raise
+        return
 
     try:
         sim_log = run_simulation(cfg_norm)

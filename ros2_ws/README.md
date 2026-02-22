@@ -132,7 +132,8 @@ flowchart LR
   GSCLI -->|/uav1/mission| ME
   GSP -->|PlanPath.srv response| GSCLI
   GSCLI -->|PlanPath.srv request| GSP
-  GSMON <-->|/uav1/telemetry,/uav1/mission_status| Air
+  GSMON -->|/uav1/telemetry| GSCLI
+  ME -->|/uav1/mission_status| GSMON
 
   ME -->|/uav1/internal/mission_cmd_vel| CM
   CM -->|/uav1/backend/cmd_twist| SB
@@ -142,10 +143,11 @@ flowchart LR
   CM -->|/uav1/telemetry| GSCLI
   ME -->|/uav1/mission_status| GSCLI
 
-  ME -->|PlanPath.srv request (onboard)| AP
+  ME -->|PlanPath.srv request onboard| AP
   AP -->|trajectory| ME
 
-  SB <--> GZ
+  SB --> GZ
+  GZ --> SB
   FS -->|/uav1/backend/odom| TA
 ```
 
