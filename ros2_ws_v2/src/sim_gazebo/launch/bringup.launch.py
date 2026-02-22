@@ -33,6 +33,11 @@ def generate_launch_description():
         default_value='true',
         description='Start air unit nodes',
     )
+    start_air_planner_arg = DeclareLaunchArgument(
+        'start_air_planner',
+        default_value='true',
+        description='Start air-side planner service (/uav1/planner/plan_path)',
+    )
 
     gz_cmd = [
         'gz', 'sim',
@@ -115,12 +120,21 @@ def generate_launch_description():
             output='screen',
             condition=IfCondition(LaunchConfiguration('start_air_unit')),
         ),
+        Node(
+            package='planner',
+            executable='planner_server_node',
+            name='planner_server_node',
+            namespace='uav1/planner',
+            output='screen',
+            condition=IfCondition(LaunchConfiguration('start_air_planner')),
+        ),
     ]
 
     return LaunchDescription([
         headless_arg,
         run_smoke_arg,
         start_air_arg,
+        start_air_planner_arg,
         gz_sim_gui,
         gz_sim_headless,
         bridge_node,
