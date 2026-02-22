@@ -11,8 +11,8 @@ class GzSmokeCmdNode(Node):
 
     def __init__(self) -> None:
         super().__init__('gz_smoke_cmd_node')
-        self.declare_parameter('cmd_topic', '/uav1/backend/cmd_twist')
-        self.declare_parameter('enable_topic', '/uav1/backend/enable')
+        self.declare_parameter('cmd_topic', '/uav/backend/cmd_twist')
+        self.declare_parameter('enable_topic', '/uav/backend/enable')
         self.declare_parameter('rate_hz', 20.0)
         self.declare_parameter('duration_sec', 12.0)
 

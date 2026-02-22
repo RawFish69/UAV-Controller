@@ -11,8 +11,8 @@ class TelemetryAdapterNode(Node):
 
     def __init__(self) -> None:
         super().__init__('telemetry_adapter_node')
-        self.declare_parameter('backend_odom_topic', '/uav1/backend/odom')
-        self.declare_parameter('backend_telemetry_raw_topic', '/uav1/backend/telemetry_raw')
+        self.declare_parameter('backend_odom_topic', '/uav/backend/odom')
+        self.declare_parameter('backend_telemetry_raw_topic', '/uav/backend/telemetry_raw')
         self.declare_parameter('battery_drain_per_sec', 0.02)
 
         self.backend_odom_topic = self.get_parameter('backend_odom_topic').value

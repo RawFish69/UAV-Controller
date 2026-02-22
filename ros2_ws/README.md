@@ -119,7 +119,7 @@ flowchart LR
     CM["command_manager_node"]
     ME["mission_executor_node"]
     TA["telemetry_adapter_node"]
-    AP["/uav1/planner/planner_server_node (onboard)"]
+    AP["/uav/planner/planner_server_node (onboard)"]
   end
 
   subgraph Backend["Backend (Gazebo or FastSim)"]
@@ -128,39 +128,39 @@ flowchart LR
     FS["fastsim_backend_adapter_node"]
   end
 
-  GSCLI -->|/uav1/command| CM
-  GSCLI -->|/uav1/mission| ME
+  GSCLI -->|/uav/command| CM
+  GSCLI -->|/uav/mission| ME
   GSP -->|PlanPath.srv response| GSCLI
   GSCLI -->|PlanPath.srv request| GSP
-  GSMON -->|/uav1/telemetry| GSCLI
-  ME -->|/uav1/mission_status| GSMON
+  GSMON -->|/uav/telemetry| GSCLI
+  ME -->|/uav/mission_status| GSMON
 
-  ME -->|/uav1/internal/mission_cmd_vel| CM
-  CM -->|/uav1/backend/cmd_twist| SB
-  CM -->|/uav1/backend/enable| SB
-  SB -->|/uav1/backend/odom| TA
-  TA -->|/uav1/backend/telemetry_raw| CM
-  CM -->|/uav1/telemetry| GSCLI
-  ME -->|/uav1/mission_status| GSCLI
+  ME -->|/uav/internal/mission_cmd_vel| CM
+  CM -->|/uav/backend/cmd_twist| SB
+  CM -->|/uav/backend/enable| SB
+  SB -->|/uav/backend/odom| TA
+  TA -->|/uav/backend/telemetry_raw| CM
+  CM -->|/uav/telemetry| GSCLI
+  ME -->|/uav/mission_status| GSCLI
 
   ME -->|PlanPath.srv request onboard| AP
   AP -->|trajectory| ME
 
   SB --> GZ
   GZ --> SB
-  FS -->|/uav1/backend/odom| TA
+  FS -->|/uav/backend/odom| TA
 ```
 
 ## Core Topics
 
-- `/uav1/command` (`drone_msgs/msg/Command`)
-- `/uav1/mission` (`drone_msgs/msg/Trajectory`)
-- `/uav1/telemetry` (`drone_msgs/msg/Telemetry`)
-- `/uav1/mission_status` (`drone_msgs/msg/MissionStatus`)
-- `/uav1/backend/cmd_twist` (`geometry_msgs/msg/Twist`)
-- `/uav1/backend/enable` (`std_msgs/msg/Bool`)
-- `/uav1/backend/odom` (`nav_msgs/msg/Odometry`)
-- `/uav1/backend/telemetry_raw` (`drone_msgs/msg/Telemetry`)
+- `/uav/command` (`drone_msgs/msg/Command`)
+- `/uav/mission` (`drone_msgs/msg/Trajectory`)
+- `/uav/telemetry` (`drone_msgs/msg/Telemetry`)
+- `/uav/mission_status` (`drone_msgs/msg/MissionStatus`)
+- `/uav/backend/cmd_twist` (`geometry_msgs/msg/Twist`)
+- `/uav/backend/enable` (`std_msgs/msg/Bool`)
+- `/uav/backend/odom` (`nav_msgs/msg/Odometry`)
+- `/uav/backend/telemetry_raw` (`drone_msgs/msg/Telemetry`)
 
 Gazebo bridged topics:
 - `/model/x3/odometry`
@@ -176,12 +176,12 @@ Gazebo bridged topics:
 - No motion in Gazebo
   - Check `/X3/enable` and `/X3/gazebo/command/twist` bridges are active.
   - Run smoke publisher: `ros2 run sim_bridge gz_smoke_cmd_node`
-- No telemetry on `/uav1/telemetry`
+- No telemetry on `/uav/telemetry`
   - Confirm `telemetry_adapter_node` and `command_manager_node` are running.
-  - Check `/model/x3/odometry` bridge and `/uav1/backend/odom`.
+  - Check `/model/x3/odometry` bridge and `/uav/backend/odom`.
 - Planner service unavailable
   - Offboard mode needs `/gs/planner/planner_server_node`.
-  - Onboard mode needs `/uav1/planner/planner_server_node`.
+  - Onboard mode needs `/uav/planner/planner_server_node`.
 
 ## Validation Helpers
 

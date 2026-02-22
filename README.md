@@ -206,7 +206,7 @@ The `gps/` project is an ESP32 GPS bring-up/telemetry module using `Adafruit_GPS
 
 ## ROS topics (common)
 
-The topic list below reflects the legacy prototype and may differ from the new `/uav1/...` topic layout in `ros2_ws`.
+The topic list below reflects the legacy prototype and may differ from the new `/uav/...` topic layout in `ros2_ws`.
 
 | Topic | Type | Description |
 |-------|------|-------------|

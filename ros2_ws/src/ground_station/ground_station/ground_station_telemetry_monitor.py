@@ -6,8 +6,8 @@ from rclpy.node import Node
 class GroundStationTelemetryMonitor(Node):
     def __init__(self) -> None:
         super().__init__('ground_station_telemetry_monitor')
-        self.declare_parameter('telemetry_topic', '/uav1/telemetry')
-        self.declare_parameter('mission_status_topic', '/uav1/mission_status')
+        self.declare_parameter('telemetry_topic', '/uav/telemetry')
+        self.declare_parameter('mission_status_topic', '/uav/mission_status')
         self.telemetry_topic = self.get_parameter('telemetry_topic').value
         self.mission_status_topic = self.get_parameter('mission_status_topic').value
 

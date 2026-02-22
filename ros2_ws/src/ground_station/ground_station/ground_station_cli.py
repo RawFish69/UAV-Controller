@@ -74,7 +74,7 @@ class GroundStationCliNode(Node):
 
 def _parse_args(argv) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Ground station CLI command publisher')
-    parser.add_argument('--command-topic', default='/uav1/command')
+    parser.add_argument('--command-topic', default='/uav/command')
     parser.add_argument('--mode', choices=sorted(MODE_MAP), default='hover')
     parser.add_argument('--planning-mode', choices=sorted(PLANNING_MAP), default='offboard')
     parser.add_argument('--arm', action='store_true')

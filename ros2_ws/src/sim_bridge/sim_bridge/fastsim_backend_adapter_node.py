@@ -25,9 +25,9 @@ class FastSimBackendAdapterNode(Node):
 
     def __init__(self) -> None:
         super().__init__('fastsim_backend_adapter_node')
-        self.declare_parameter('backend_cmd_topic', '/uav1/backend/cmd_twist')
-        self.declare_parameter('backend_enable_topic', '/uav1/backend/enable')
-        self.declare_parameter('backend_odom_topic', '/uav1/backend/odom')
+        self.declare_parameter('backend_cmd_topic', '/uav/backend/cmd_twist')
+        self.declare_parameter('backend_enable_topic', '/uav/backend/enable')
+        self.declare_parameter('backend_odom_topic', '/uav/backend/odom')
         self.declare_parameter('sim_rate_hz', 50.0)
         self.declare_parameter('kv_drag', 0.15)
         self.declare_parameter('max_accel', 2.0)

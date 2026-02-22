@@ -48,7 +48,7 @@ def generate_launch_description():
         Node(
             package='planner',
             executable='planner_server_node',
-            namespace='uav1/planner',
+            namespace='uav/planner',
             name='planner_server_node',
             output='screen',
             condition=IfCondition(LaunchConfiguration('start_onboard_planner')),

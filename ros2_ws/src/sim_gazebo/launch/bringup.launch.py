@@ -36,7 +36,7 @@ def generate_launch_description():
     start_air_planner_arg = DeclareLaunchArgument(
         'start_air_planner',
         default_value='true',
-        description='Start air-side planner service (/uav1/planner/plan_path)',
+        description='Start air-side planner service (/uav/planner/plan_path)',
     )
 
     gz_cmd = [
@@ -76,10 +76,10 @@ def generate_launch_description():
         name='gazebo_backend_adapter',
         output='screen',
         parameters=[{
-            'uav_namespace': '/uav1',
-            'backend_cmd_topic': '/uav1/backend/cmd_twist',
-            'backend_enable_topic': '/uav1/backend/enable',
-            'backend_odom_topic': '/uav1/backend/odom',
+            'uav_namespace': '/uav',
+            'backend_cmd_topic': '/uav/backend/cmd_twist',
+            'backend_enable_topic': '/uav/backend/enable',
+            'backend_odom_topic': '/uav/backend/odom',
             'gz_cmd_topic': '/X3/gazebo/command/twist',
             'gz_enable_topic': '/X3/enable',
             'gz_odom_topic': '/model/x3/odometry',
@@ -92,8 +92,8 @@ def generate_launch_description():
         name='gz_smoke_cmd_node',
         output='screen',
         parameters=[{
-            'cmd_topic': '/uav1/backend/cmd_twist',
-            'enable_topic': '/uav1/backend/enable',
+            'cmd_topic': '/uav/backend/cmd_twist',
+            'enable_topic': '/uav/backend/enable',
         }],
         condition=IfCondition(LaunchConfiguration('run_smoke_cmd')),
     )
@@ -124,7 +124,7 @@ def generate_launch_description():
             package='planner',
             executable='planner_server_node',
             name='planner_server_node',
-            namespace='uav1/planner',
+            namespace='uav/planner',
             output='screen',
             condition=IfCondition(LaunchConfiguration('start_air_planner')),
         ),

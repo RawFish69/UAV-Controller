@@ -19,12 +19,12 @@ class MissionExecutorNode(Node):
 
     def __init__(self) -> None:
         super().__init__('mission_executor_node')
-        self.declare_parameter('mission_topic', '/uav1/mission')
-        self.declare_parameter('command_topic', '/uav1/command')
-        self.declare_parameter('telemetry_raw_topic', '/uav1/backend/telemetry_raw')
-        self.declare_parameter('mission_cmd_topic', '/uav1/internal/mission_cmd_vel')
-        self.declare_parameter('mission_status_topic', '/uav1/mission_status')
-        self.declare_parameter('planner_service_topic', '/uav1/planner/plan_path')
+        self.declare_parameter('mission_topic', '/uav/mission')
+        self.declare_parameter('command_topic', '/uav/command')
+        self.declare_parameter('telemetry_raw_topic', '/uav/backend/telemetry_raw')
+        self.declare_parameter('mission_cmd_topic', '/uav/internal/mission_cmd_vel')
+        self.declare_parameter('mission_status_topic', '/uav/mission_status')
+        self.declare_parameter('planner_service_topic', '/uav/planner/plan_path')
         self.declare_parameter('control_rate_hz', 20.0)
         self.declare_parameter('position_kp', 0.8)
         self.declare_parameter('max_speed_mps', 1.5)

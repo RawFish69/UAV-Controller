@@ -13,10 +13,10 @@ class GazeboBackendAdapterNode(Node):
     def __init__(self) -> None:
         super().__init__('gazebo_backend_adapter_node')
 
-        self.declare_parameter('uav_namespace', '/uav1')
-        self.declare_parameter('backend_cmd_topic', '/uav1/backend/cmd_twist')
-        self.declare_parameter('backend_enable_topic', '/uav1/backend/enable')
-        self.declare_parameter('backend_odom_topic', '/uav1/backend/odom')
+        self.declare_parameter('uav_namespace', '/uav')
+        self.declare_parameter('backend_cmd_topic', '/uav/backend/cmd_twist')
+        self.declare_parameter('backend_enable_topic', '/uav/backend/enable')
+        self.declare_parameter('backend_odom_topic', '/uav/backend/odom')
         self.declare_parameter('gz_cmd_topic', '/X3/gazebo/command/twist')
         self.declare_parameter('gz_enable_topic', '/X3/enable')
         self.declare_parameter('gz_odom_topic', '/model/x3/odometry')

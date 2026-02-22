@@ -13,12 +13,12 @@ class CommandManagerNode(Node):
 
     def __init__(self) -> None:
         super().__init__('command_manager_node')
-        self.declare_parameter('command_topic', '/uav1/command')
-        self.declare_parameter('telemetry_raw_topic', '/uav1/backend/telemetry_raw')
-        self.declare_parameter('mission_cmd_topic', '/uav1/internal/mission_cmd_vel')
-        self.declare_parameter('backend_cmd_topic', '/uav1/backend/cmd_twist')
-        self.declare_parameter('backend_enable_topic', '/uav1/backend/enable')
-        self.declare_parameter('telemetry_topic', '/uav1/telemetry')
+        self.declare_parameter('command_topic', '/uav/command')
+        self.declare_parameter('telemetry_raw_topic', '/uav/backend/telemetry_raw')
+        self.declare_parameter('mission_cmd_topic', '/uav/internal/mission_cmd_vel')
+        self.declare_parameter('backend_cmd_topic', '/uav/backend/cmd_twist')
+        self.declare_parameter('backend_enable_topic', '/uav/backend/enable')
+        self.declare_parameter('telemetry_topic', '/uav/telemetry')
         self.declare_parameter('control_rate_hz', 20.0)
         self.declare_parameter('command_timeout_sec', 2.0)
         self.declare_parameter('mission_cmd_timeout_sec', 1.0)

@@ -19,10 +19,10 @@ class GroundStationDemoMission(Node):
 
     def __init__(self) -> None:
         super().__init__('ground_station_demo_mission')
-        self.declare_parameter('command_topic', '/uav1/command')
-        self.declare_parameter('mission_topic', '/uav1/mission')
-        self.declare_parameter('telemetry_topic', '/uav1/telemetry')
-        self.declare_parameter('mission_status_topic', '/uav1/mission_status')
+        self.declare_parameter('command_topic', '/uav/command')
+        self.declare_parameter('mission_topic', '/uav/mission')
+        self.declare_parameter('telemetry_topic', '/uav/telemetry')
+        self.declare_parameter('mission_status_topic', '/uav/mission_status')
         self.declare_parameter('planner_service_topic', '/gs/planner/plan_path')
         self.declare_parameter('planning_mode', 'offboard')  # offboard | onboard
         self.declare_parameter('use_planner', True)
