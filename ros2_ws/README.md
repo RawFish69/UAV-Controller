@@ -1,4 +1,4 @@
-# ROS2 Workspace V2 (Gazebo + Ground Station / Air Unit)
+# ROS2 Workspace (Gazebo + Ground Station / Air Unit)
 
 This workspace contains the rebuilt ROS2 + Gazebo simulation stack for `UAV-Controller`.
 
@@ -29,7 +29,7 @@ Repo tooling already includes a Humble devcontainer / Docker path (`docker/Docke
 ## Build
 
 ```bash
-cd ros2_ws_v2
+cd ros2_ws
 colcon build --symlink-install
 source install/setup.bash
 ```
@@ -38,7 +38,7 @@ source install/setup.bash
 
 Terminal 1 (sim + air unit):
 ```bash
-cd ros2_ws_v2
+cd ros2_ws
 source /opt/ros/humble/setup.bash
 source install/setup.bash
 ros2 launch sim_gazebo bringup.launch.py
@@ -46,7 +46,7 @@ ros2 launch sim_gazebo bringup.launch.py
 
 Terminal 2 (ground station + offboard planner + monitor):
 ```bash
-cd ros2_ws_v2
+cd ros2_ws
 source /opt/ros/humble/setup.bash
 source install/setup.bash
 ros2 launch ground_station ground.launch.py start_planner:=true start_monitor:=true
@@ -54,7 +54,7 @@ ros2 launch ground_station ground.launch.py start_planner:=true start_monitor:=t
 
 Terminal 3 (demo mission):
 ```bash
-cd ros2_ws_v2
+cd ros2_ws
 source /opt/ros/humble/setup.bash
 source install/setup.bash
 ros2 run ground_station ground_station_demo_mission
@@ -62,7 +62,7 @@ ros2 run ground_station ground_station_demo_mission
 
 Manual override at any time (example):
 ```bash
-cd ros2_ws_v2
+cd ros2_ws
 source /opt/ros/humble/setup.bash
 source install/setup.bash
 ros2 run ground_station ground_station_cli -- --mode manual --manual-override --arm --vx 0.5 --yaw-rate 0.2 --duration-sec 5
@@ -94,7 +94,7 @@ ros2 run ground_station ground_station_demo_mission --ros-args -p planning_mode:
 
 Offboard planner:
 ```bash
-cd ros2_ws_v2
+cd ros2_ws
 source /opt/ros/humble/setup.bash
 source install/setup.bash
 ros2 launch sim_fast bringup.launch.py start_offboard_planner:=true start_onboard_planner:=false start_demo:=true demo_planning_mode:=offboard
@@ -190,5 +190,5 @@ Use scripts from repo root (Linux):
 
 ## Notes
 
-- This workspace is implemented in `ros2_ws_v2` to avoid breaking the legacy prototype during development.
-- If you choose to replace the old `ros2_ws`, keep in mind legacy `sim_py` used to import terrain configs from that path. A compatibility fallback has been added in `sim_py/terrain_wrapper.py`.
+- This is now the canonical ROS2 workspace path for the Gazebo/ground-air stack: `ros2_ws`.
+- `terrain_generator` is included here so `sim_py` can continue to reuse the shared terrain config and generators.

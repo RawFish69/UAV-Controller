@@ -1,2 +1,0 @@
-# sim_dyn package
-

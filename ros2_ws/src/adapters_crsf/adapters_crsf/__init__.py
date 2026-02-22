@@ -1,2 +1,0 @@
-# adapters_crsf package
-

@@ -21,8 +21,6 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ROS2_SRC_CANDIDATES = [
     REPO_ROOT / "ros2_ws" / "src",
-    REPO_ROOT / "ros2_ws_legacy" / "src",
-    REPO_ROOT / "ros2_ws_v2" / "src",
 ]
 for _ros2_src in ROS2_SRC_CANDIDATES:
     if _ros2_src.exists() and str(_ros2_src) not in sys.path:
@@ -70,8 +68,6 @@ def load_terrain_config(
     if yaml_path is None:
         candidates = [
             REPO_ROOT / "ros2_ws" / "src" / "terrain_generator" / "config" / "terrain_params.yaml",
-            REPO_ROOT / "ros2_ws_legacy" / "src" / "terrain_generator" / "config" / "terrain_params.yaml",
-            REPO_ROOT / "ros2_ws_v2" / "src" / "terrain_generator" / "config" / "terrain_params.yaml",
         ]
         yaml_path = next((c for c in candidates if c.exists()), candidates[0])
     yaml_path = Path(yaml_path)

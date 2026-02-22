@@ -5,7 +5,7 @@ Multi-purpose quadcopter control stack with:
 - **Standalone Python simulator** (no ROS) for fast iteration on planners/controllers
 - **ESP32 TX/RX link** for manual flight + autonomous command relay
 
-## What’s in this repo
+## What's in this repo
 
 - **Controllers**
   - **ROS 2**: PID / LQR / MPC (work-in-progress depending on package)
@@ -32,14 +32,14 @@ Multi-purpose quadcopter control stack with:
 **Manual Flight**
 
 ```
-TX (IMU+Joystick) → ESP-NOW → RX → Protocol Bridge → Flight Controller
+TX (IMU+Joystick) -> ESP-NOW -> RX -> Protocol Bridge -> Flight Controller
                                       (CRSF/SBUS/PPM/iBus/FrSky)
 ```
 
 **Autonomous (Hardware-in-the-loop)**
 
 ```
-ROS Controllers → Safety Gate → CRSF Adapter → UDP → TX → ESP-NOW → RX → Protocol → FC
+ROS Controllers -> Safety Gate -> CRSF Adapter -> UDP -> TX -> ESP-NOW -> RX -> Protocol -> FC
 ```
 
 **Simulation**
@@ -47,13 +47,13 @@ ROS Controllers → Safety Gate → CRSF Adapter → UDP → TX → ESP-NOW → 
 - **ROS 2 + RViz**:
 
 ```
-Controllers → Safety Gate → sim_dyn → RViz
+Controllers -> Safety Gate -> sim_dyn -> RViz
 ```
 
 - **Python-only (no ROS)**:
 
 ```
-Planner → Controller → Dynamics backend (pointmass/rotorpy) → Matplotlib 3D
+Planner -> Controller -> Dynamics backend (pointmass/rotorpy) -> Matplotlib 3D
 ```
 
 ## Quick start (Python-only simulator)
@@ -109,15 +109,15 @@ python -m sim_py.run_sim --backend rotorpy
   - `ros2_ws/src/terrain_generator/config/terrain_params.yaml`
   - Forest obstacle count is mainly set by:
     - `forest.grid_size` and `forest.density`
-    - expected trees ≈ \(grid\_size^2 \cdot density\)
+    - expected trees ~= \(grid\_size^2 \cdot density\)
 
 ## Quick start (ROS 2)
 
-### V2 Gazebo / Ground-Air stack (new)
+### Gazebo / Ground-Air stack (current)
 
-The rebuilt Gazebo + ground-station / air-unit stack lives in `ros2_ws_v2` during migration.
+The rebuilt Gazebo + ground-station / air-unit stack now lives in `ros2_ws`.
 
-- Workspace docs / runbook: `ros2_ws_v2/README.md`
+- Workspace docs / runbook: `ros2_ws/README.md`
 - Primary sim bringup: `ros2 launch sim_gazebo bringup.launch.py`
 - Ground station bringup: `ros2 launch ground_station ground.launch.py`
 
@@ -129,24 +129,23 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
-### Run RViz simulation
+### Run Gazebo / Fast simulation
 
 ```bash
-ros2 launch sim_dyn sim_pid.launch.py
-ros2 launch sim_dyn sim_lqr.launch.py
-ros2 launch sim_dyn sim_mpc.launch.py
+ros2 launch sim_gazebo bringup.launch.py
+ros2 launch ground_station ground.launch.py
+
+# Fast headless backend
+ros2 launch sim_fast bringup.launch.py
 ```
 
-### Run autonomous (hardware)
+### Legacy ROS2 prototype scripts
 
-TX firmware needs UDP modification. See `docs/HARDWARE.md`.
-
-```bash
-./scripts/run_crsf_link_pid.sh transport:=udp udp_host:=192.168.4.1
-```
+The old RViz/controller prototype workspace was replaced during consolidation.
+If you still need the legacy PID/LQR/MPC ROS2 stack, recover it from git history.
+Current ROS2 workflows are documented in `ros2_ws/README.md`.
 
 ## Docker quick start
-
 Dockerfiles are split by workflow:
 
 - ROS 2 Humble: `docker/Dockerfile.humble`
@@ -189,14 +188,16 @@ The `gps/` project is an ESP32 GPS bring-up/telemetry module using `Adafruit_GPS
 
 | Path | Type | Purpose |
 |------|------|---------|
-| `ros2_ws/src/controllers_pid` | C++ | Cascaded PID controller |
-| `ros2_ws/src/controllers_lqr` | C++ | LQR controller |
-| `ros2_ws/src/controllers_mpc` | C++ | MPC controller |
-| `ros2_ws/src/safety_gate` | C++ | Validation, limiting, routing |
-| `ros2_ws/src/adapters_crsf` | Python | ROS ↔ TX bridge (UDP/Serial) |
-| `ros2_ws/src/sim_dyn` | Python | Dynamics + RViz integration |
+| `ros2_ws/src/air_unit` | Python | Air-side command manager / mission executor / telemetry adapter |
+| `ros2_ws/src/ground_station` | Python | CLI, monitor, and demo mission tools |
+| `ros2_ws/src/planner` | Python | ROS2 planner service wrapper for `sim_py` planners |
+| `ros2_ws/src/sim_bridge` | Python | Backend adapters (Gazebo / fast sim) |
+| `ros2_ws/src/sim_fast` | Python | Headless simulation bringup |
+| `ros2_ws/src/sim_gazebo` | Python | Gazebo Sim bringup and assets |
+| `ros2_ws/src/px4_bridge` | Python | PX4 bridge scaffolding |
+| `ros2_ws/src/uav_algorithms` | Python | Shared algorithms / planning API helpers |
+| `ros2_ws/src/drone_msgs` | ROS msgs/srvs | Command, telemetry, mission, planner interfaces |
 | `ros2_ws/src/terrain_generator` | Python | Terrain + obstacles (forest/mountains/plains) |
-| `ros2_ws/src/common_msgs` | ROS msgs | Custom message types |
 | `sim_py` | Python | Standalone planner/controller/dynamics/visualization |
 | `ESPNOW_TX` | ESP32 | ESP-NOW based TX/RX firmware |
 | `LoRa_TX` | ESP32 | LoRa TX experiments |
@@ -204,6 +205,8 @@ The `gps/` project is an ESP32 GPS bring-up/telemetry module using `Adafruit_GPS
 | `Utils` | Python | Protocol decoder/monitor + tools |
 
 ## ROS topics (common)
+
+The topic list below reflects the legacy prototype and may differ from the new `/uav1/...` topic layout in `ros2_ws`.
 
 | Topic | Type | Description |
 |-------|------|-------------|

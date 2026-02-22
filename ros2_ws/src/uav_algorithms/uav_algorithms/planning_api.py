@@ -11,12 +11,11 @@ from .repo_paths import ensure_repo_root_on_path
 def _resolve_terrain_config(repo_root: Path) -> Path:
     candidates = [
         repo_root / 'ros2_ws' / 'src' / 'terrain_generator' / 'config' / 'terrain_params.yaml',
-        repo_root / 'ros2_ws_legacy' / 'src' / 'terrain_generator' / 'config' / 'terrain_params.yaml',
     ]
     for c in candidates:
         if c.exists():
             return c
-    # Fall back to the original expected path; the caller will get a useful error.
+    # Fall back to the canonical path; the caller will get a useful error.
     return candidates[0]
 
 
