@@ -1,7 +1,7 @@
 # UAV Controller + Path Planning
 
 Multi-purpose quadcopter control stack with:
-- **ROS 2 control + safety pipeline** (hardware and RViz simulation)
+- **ROS 2 control + safety pipeline** (hardware + Gazebo Sim / fast sim)
 - **Standalone Python simulator** (no ROS) for fast iteration on planners/controllers
 - **ESP32 TX/RX link** for manual flight + autonomous command relay
 
@@ -9,7 +9,7 @@ Multi-purpose quadcopter control stack with:
 
 - **Controllers**
   - **ROS 2**: PID / LQR / MPC (work-in-progress depending on package)
-  - **Python-only** (`sim_py`): PID / LQR / MPC position controllers
+  - **Python-only** (`sim_py`): PID / LQR / MPC position controllers + Matplotlib teleop
 - **Path planning (Python-only)**: straight / A* / RRT planners
 - **Terrain generation**: forest / mountains / plains (shared between ROS and Python sim)
 - **Safety**: validation, limiting, watchdog (`safety_gate`)
@@ -44,10 +44,10 @@ ROS Controllers -> Safety Gate -> CRSF Adapter -> UDP -> TX -> ESP-NOW -> RX -> 
 
 **Simulation**
 
-- **ROS 2 + RViz**:
+- **ROS 2 (Gazebo / fast sim)**:
 
 ```
-Controllers -> Safety Gate -> sim_dyn -> RViz
+Ground Station / Air Unit -> sim_bridge -> Gazebo Sim (or sim_fast)
 ```
 
 - **Python-only (no ROS)**:
@@ -89,7 +89,24 @@ python -m sim_py.run_sim --terrain-config ros2_ws/src/terrain_generator/config/t
 
 # Select dynamics backend (default: pointmass)
 python -m sim_py.run_sim --backend rotorpy
+
+# Interactive teleop (Matplotlib, best with RotorPy backend)
+python -m sim_py.run_sim --controller teleop --backend rotorpy --terrain forest
 ```
+
+### Python sim teleop (Matplotlib)
+
+`sim_py` now includes an interactive teleop mode for quick manual flying in the Matplotlib 3D viewer.
+
+- Launch: `python -m sim_py.run_sim --controller teleop --backend rotorpy`
+- Controls (focus the plot window first):
+  - `W/S`: +/- X
+  - `A/D`: +/- Y
+  - `R/F`: +/- Z
+  - `P`: pause/resume
+  - `Esc`: close
+
+Teleop is acceleration-command based and works best with the RotorPy backend.
 
 ### Python sim configuration
 
@@ -204,18 +221,26 @@ The `gps/` project is an ESP32 GPS bring-up/telemetry module using `Adafruit_GPS
 | `gps` | ESP32 | GPS telemetry module (Adafruit_GPS / NMEA + PMTK + UBX support) |
 | `Utils` | Python | Protocol decoder/monitor + tools |
 
-## ROS topics (common)
+## ROS 2 topics (current stack)
 
-The topic list below reflects the legacy prototype and may differ from the new `/uav/...` topic layout in `ros2_ws`.
+The current ROS2 Gazebo/fast-sim stack uses the `/uav/...` namespace by default.
 
-| Topic | Type | Description |
-|-------|------|-------------|
-| `/cmd/body_rate_thrust` | `BodyRateThrust` | Controller output |
-| `/cmd/final/body_rate_thrust` | `BodyRateThrust` | After safety (sim) |
-| `/cmd/final/rc` | `VirtualRC` | After safety (hardware) |
-| `/state/odom` | `Odometry` | State estimate |
-| `/state/attitude` | `QuaternionStamped` | Orientation |
-| `/state/angular_velocity` | `Vector3Stamped` | Body rates |
+- `/uav/command` (`drone_msgs/msg/Command`)
+- `/uav/mission` (`drone_msgs/msg/Trajectory`)
+- `/uav/telemetry` (`drone_msgs/msg/Telemetry`)
+- `/uav/mission_status` (`drone_msgs/msg/MissionStatus`)
+- `/uav/backend/cmd_twist` (`geometry_msgs/msg/Twist`)
+- `/uav/backend/enable` (`std_msgs/msg/Bool`)
+- `/uav/backend/odom` (`nav_msgs/msg/Odometry`)
+- `/uav/backend/telemetry_raw` (`drone_msgs/msg/Telemetry`)
+
+Gazebo bridged topics:
+
+- `/model/x3/odometry`
+- `/X3/gazebo/command/twist`
+- `/X3/enable`
+
+See `ros2_ws/README.md` for the full topic/node diagram and troubleshooting notes.
 
 ## Docs
 

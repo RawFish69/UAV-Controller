@@ -24,8 +24,9 @@ setup(
     license='MIT',
     tests_require=['pytest'],
     entry_points={
-        'console_scripts': [
+    'console_scripts': [
     'ground_station_cli = ground_station.ground_station_cli:main',
+    'ground_station_keyboard_teleop = ground_station.ground_station_keyboard_teleop:main',
     'ground_station_telemetry_monitor = ground_station.ground_station_telemetry_monitor:main',
     'ground_station_demo_mission = ground_station.ground_station_demo_mission:main',
         ],

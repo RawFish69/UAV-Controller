@@ -73,6 +73,26 @@ Return to hover:
 ros2 run ground_station ground_station_cli -- --mode hover --arm --duration-sec 2
 ```
 
+Keyboard teleop (interactive terminal):
+```bash
+cd ros2_ws
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+ros2 run ground_station ground_station_keyboard_teleop
+```
+
+Keyboard teleop keys (focus terminal):
+- `w/s`: +/- X velocity
+- `a/d`: +/- Y velocity
+- `r/f`: +/- Z velocity
+- `q/e`: +/- yaw rate
+- `space`: zero all commands
+- `u` / `j`: arm / disarm (one-shot)
+- `m` / `h` / `t` / `g` / `i`: manual / hover / takeoff / land / idle mode
+- `o` / `p`: offboard / onboard planning mode
+- `v`: toggle `manual_override`
+- `Esc` or `Ctrl+C`: quit
+
 ## Run (Gazebo, Onboard Planning)
 
 Terminal 1:
