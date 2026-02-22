@@ -50,6 +50,73 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
+## Recommended Test Flows (Current)
+
+These are the current "known-good" commands for testing the planner + terrain stack.
+
+### Dense Forest + Offboard Planner + Visualized Path (Recommended)
+
+Terminal 1 (Gazebo + air unit + terrain obstacle visuals + planner path waypoint visuals):
+```bash
+cd ros2_ws
+source /opt/ros/jazzy/setup.bash   # or /opt/ros/humble/setup.bash
+source install/setup.bash
+ros2 launch sim_gazebo bringup.launch.py \
+  start_terrain_visuals:=true \
+  start_path_visuals:=true
+```
+
+Terminal 2 (terrain generator, dense local forest around UAV):
+```bash
+cd ros2_ws
+source /opt/ros/jazzy/setup.bash   # or /opt/ros/humble/setup.bash
+source install/setup.bash
+ros2 launch terrain_generator terrain_generator.launch.py terrain_type:=forest
+```
+
+Terminal 3 (ground station + offboard planner + monitor; monitor is throttled by default):
+```bash
+cd ros2_ws
+source /opt/ros/jazzy/setup.bash   # or /opt/ros/humble/setup.bash
+source install/setup.bash
+ros2 launch ground_station ground.launch.py start_planner:=true start_monitor:=true
+```
+
+Terminal 4 (demo mission; defaults now use a farther goal for planning):
+```bash
+cd ros2_ws
+source /opt/ros/jazzy/setup.bash   # or /opt/ros/humble/setup.bash
+source install/setup.bash
+ros2 run ground_station ground_station_demo_mission
+```
+
+RViz path/terrain visualization (optional, recommended):
+- Add `MarkerArray` display for `/terrain/obstacles`
+- Add `MarkerArray` display for `/gs/planner/planned_path_markers`
+
+Notes:
+- Gazebo path visuals currently mirror planner waypoint markers as spheres (not a line strip).
+- RViz shows the full planned path line + waypoints.
+- If you want a quieter Terminal 3, use `start_monitor:=false`.
+
+### Mountains Terrain Surface in Gazebo (Mesh)
+
+Terminal 1:
+```bash
+cd ros2_ws
+source /opt/ros/jazzy/setup.bash   # or /opt/ros/humble/setup.bash
+source install/setup.bash
+ros2 launch sim_gazebo bringup.launch.py start_terrain_surface:=true
+```
+
+Terminal 2 (optional terrain markers for planning/RViz extras):
+```bash
+cd ros2_ws
+source /opt/ros/jazzy/setup.bash   # or /opt/ros/humble/setup.bash
+source install/setup.bash
+ros2 launch terrain_generator terrain_generator.launch.py terrain_type:=mountains
+```
+
 ## Run (Gazebo, Offboard Planning)
 
 Terminal 1 (sim + air unit):
@@ -60,7 +127,15 @@ source install/setup.bash
 ros2 launch sim_gazebo bringup.launch.py
 ```
 
-Terminal 2 (ground station + offboard planner + monitor):
+Terminal 2 (terrain markers; required if testing terrain/planning visuals):
+```bash
+cd ros2_ws
+source /opt/ros/jazzy/setup.bash   # or /opt/ros/humble/setup.bash
+source install/setup.bash
+ros2 launch terrain_generator terrain_generator.launch.py terrain_type:=forest
+```
+
+Terminal 3 (ground station + offboard planner + monitor):
 ```bash
 cd ros2_ws
 source /opt/ros/jazzy/setup.bash   # or /opt/ros/humble/setup.bash
@@ -68,7 +143,7 @@ source install/setup.bash
 ros2 launch ground_station ground.launch.py start_planner:=true start_monitor:=true
 ```
 
-Terminal 3 (demo mission):
+Terminal 4 (demo mission):
 ```bash
 cd ros2_ws
 source /opt/ros/jazzy/setup.bash   # or /opt/ros/humble/setup.bash
@@ -113,15 +188,20 @@ Keyboard teleop keys (focus terminal):
 
 Terminal 1:
 ```bash
-ros2 launch sim_gazebo bringup.launch.py start_air_planner:=true
+ros2 launch sim_gazebo bringup.launch.py start_air_planner:=true start_path_visuals:=true path_marker_topic:=/uav/planner/planned_path_markers
 ```
 
-Terminal 2 (monitor only; no ground planner):
+Terminal 2 (terrain markers):
+```bash
+ros2 launch terrain_generator terrain_generator.launch.py terrain_type:=forest
+```
+
+Terminal 3 (monitor only; no ground planner):
 ```bash
 ros2 launch ground_station ground.launch.py start_planner:=false start_monitor:=true
 ```
 
-Terminal 3 (demo mission instructing onboard planning):
+Terminal 4 (demo mission instructing onboard planning):
 ```bash
 ros2 run ground_station ground_station_demo_mission --ros-args -p planning_mode:=onboard
 ```
@@ -219,6 +299,12 @@ Gazebo bridged topics:
 - Planner service unavailable
   - Offboard mode needs `/gs/planner/planner_server_node`.
   - Onboard mode needs `/uav/planner/planner_server_node`.
+- Path not visible
+  - RViz path markers are published on `/gs/planner/planned_path_markers` (offboard) or `/uav/planner/planned_path_markers` (onboard).
+  - Gazebo path visuals require `start_path_visuals:=true` in `sim_gazebo` bringup.
+- Terminal output too noisy (ground station)
+  - `ground_station_telemetry_monitor` is throttled by default now.
+  - Disable it entirely with `ros2 launch ground_station ground.launch.py start_monitor:=false ...`
 
 ## Validation Helpers
 

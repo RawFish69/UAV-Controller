@@ -38,6 +38,45 @@ def generate_launch_description():
         default_value='true',
         description='Start air-side planner service (/uav/planner/plan_path)',
     )
+    start_terrain_visuals_arg = DeclareLaunchArgument(
+        'start_terrain_visuals',
+        default_value='false',
+        description='Spawn /terrain/obstacles markers as Gazebo entities',
+    )
+    terrain_world_name_arg = DeclareLaunchArgument(
+        'terrain_world_name',
+        default_value='uav_flat_world',
+        description='Gazebo world name for terrain spawning service path',
+    )
+    start_terrain_surface_arg = DeclareLaunchArgument(
+        'start_terrain_surface',
+        default_value='false',
+        description='Spawn a generated terrain surface mesh into Gazebo (mountains profile)',
+    )
+    start_path_visuals_arg = DeclareLaunchArgument(
+        'start_path_visuals',
+        default_value='false',
+        description='Spawn planner waypoint markers (spheres) in Gazebo from planner MarkerArray topic',
+    )
+    path_marker_topic_arg = DeclareLaunchArgument(
+        'path_marker_topic',
+        default_value='/gs/planner/planned_path_markers',
+        description='Planner MarkerArray topic to mirror into Gazebo',
+    )
+    terrain_surface_type_arg = DeclareLaunchArgument(
+        'terrain_surface_type',
+        default_value='mountains',
+        description='Terrain profile for surface mesh generator (expects mountains)',
+    )
+    terrain_config_file_arg = DeclareLaunchArgument(
+        'terrain_config_file',
+        default_value=PathJoinSubstitution([
+            FindPackageShare('terrain_generator'),
+            'config',
+            'terrain_params.yaml',
+        ]),
+        description='Shared terrain config YAML used for terrain surface generation',
+    )
 
     gz_cmd = [
         'gz', 'sim',
@@ -98,6 +137,47 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('run_smoke_cmd')),
     )
 
+    terrain_visual_spawner = Node(
+        package='sim_gazebo',
+        executable='terrain_marker_spawner_node',
+        name='terrain_marker_spawner',
+        output='screen',
+        parameters=[{
+            'marker_topic': '/terrain/obstacles',
+            'world_name': LaunchConfiguration('terrain_world_name'),
+            'spawn_once': True,
+        }],
+        condition=IfCondition(LaunchConfiguration('start_terrain_visuals')),
+    )
+
+    terrain_surface_spawner = Node(
+        package='sim_gazebo',
+        executable='terrain_surface_spawner_node',
+        name='terrain_surface_spawner',
+        output='screen',
+        parameters=[{
+            'world_name': LaunchConfiguration('terrain_world_name'),
+            'terrain_type': LaunchConfiguration('terrain_surface_type'),
+            'terrain_config_file': LaunchConfiguration('terrain_config_file'),
+        }],
+        condition=IfCondition(LaunchConfiguration('start_terrain_surface')),
+    )
+
+    path_visual_spawner = Node(
+        package='sim_gazebo',
+        executable='terrain_marker_spawner_node',
+        name='path_marker_spawner',
+        output='screen',
+        parameters=[{
+            'marker_topic': LaunchConfiguration('path_marker_topic'),
+            'world_name': LaunchConfiguration('terrain_world_name'),
+            'model_name_prefix': 'planned_path',
+            'spawn_once': True,
+            'create_collision': False,
+        }],
+        condition=IfCondition(LaunchConfiguration('start_path_visuals')),
+    )
+
     air_nodes = [
         Node(
             package='air_unit',
@@ -135,10 +215,20 @@ def generate_launch_description():
         run_smoke_arg,
         start_air_arg,
         start_air_planner_arg,
+        start_terrain_visuals_arg,
+        terrain_world_name_arg,
+        start_terrain_surface_arg,
+        start_path_visuals_arg,
+        path_marker_topic_arg,
+        terrain_surface_type_arg,
+        terrain_config_file_arg,
         gz_sim_gui,
         gz_sim_headless,
         bridge_node,
         gazebo_adapter,
         smoke_node,
+        terrain_visual_spawner,
+        terrain_surface_spawner,
+        path_visual_spawner,
         *air_nodes,
     ])

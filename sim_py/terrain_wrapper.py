@@ -21,24 +21,44 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ROS2_SRC_CANDIDATES = [
     REPO_ROOT / "ros2_ws" / "src",
+    REPO_ROOT / "ros2_ws" / "src" / "terrain_generator",
 ]
 for _ros2_src in ROS2_SRC_CANDIDATES:
     if _ros2_src.exists() and str(_ros2_src) not in sys.path:
         sys.path.append(str(_ros2_src))
 
-from terrain_generator.terrain_generator.forest_generator import generate_forest  # type: ignore  # noqa: E402
-from terrain_generator.terrain_generator.mountains_generator import (  # type: ignore  # noqa: E402,E501
-    generate_mountains,
-)
-from terrain_generator.terrain_generator.plains_generator import (  # type: ignore  # noqa: E402,E501
-    generate_plains,
-)
-from terrain_generator.terrain_generator.obstacles import (  # type: ignore  # noqa: E402,E501
-    BoxObstacle,
-    CylinderObstacle,
-    HeightFieldTerrain,
-    is_point_in_collision,
-)
+try:
+    # Installed ROS2 Python package layout (most runtime environments)
+    from terrain_generator.forest_generator import generate_forest  # type: ignore  # noqa: E402
+    from terrain_generator.mountains_generator import (  # type: ignore  # noqa: E402,E501
+        generate_mountains,
+    )
+    from terrain_generator.plains_generator import (  # type: ignore  # noqa: E402,E501
+        generate_plains,
+    )
+    from terrain_generator.obstacles import (  # type: ignore  # noqa: E402,E501
+        BoxObstacle,
+        CylinderObstacle,
+        HeightFieldTerrain,
+        is_point_in_collision,
+    )
+except ModuleNotFoundError:
+    # Source-tree layout when only ros2_ws/src is on PYTHONPATH
+    from terrain_generator.terrain_generator.forest_generator import (  # type: ignore  # noqa: E402,E501
+        generate_forest,
+    )
+    from terrain_generator.terrain_generator.mountains_generator import (  # type: ignore  # noqa: E402,E501
+        generate_mountains,
+    )
+    from terrain_generator.terrain_generator.plains_generator import (  # type: ignore  # noqa: E402,E501
+        generate_plains,
+    )
+    from terrain_generator.terrain_generator.obstacles import (  # type: ignore  # noqa: E402,E501
+        BoxObstacle,
+        CylinderObstacle,
+        HeightFieldTerrain,
+        is_point_in_collision,
+    )
 
 
 TerrainType = Literal["forest", "mountains", "plains"]
@@ -109,6 +129,8 @@ def generate_terrain(
         height_range = tuple(float(h) * float(tree_height_scale) for h in base_height_range)
         base_density = float(p.get("density", 0.7))
         density = max(0.0, min(1.0, base_density * float(forest_density_scale)))
+        local_cluster_radius = float(p.get("local_cluster_radius", 0.0))
+        local_cluster_num_trees = int(p.get("local_cluster_num_trees", 0))
 
         obstacles = generate_forest(
             cfg.space_dim,
@@ -117,6 +139,8 @@ def generate_terrain(
             height_range=height_range,
             density=density,
             start_pos=cfg.start_pos,
+            local_cluster_radius=local_cluster_radius,
+            local_cluster_num_trees=local_cluster_num_trees,
         )
 
     elif cfg.terrain_type == "mountains":
@@ -161,12 +185,14 @@ def generate_terrain(
         obstacle_types: Sequence[str] = p.get(
             "obstacle_types", ["bush", "rock"]
         )
+        local_cluster_radius = float(p.get("local_cluster_radius", 0.0))
 
         obstacles = generate_plains(
             cfg.space_dim,
             num_obstacles=num_obstacles,
             obstacle_types=list(obstacle_types),
             start_pos=cfg.start_pos,
+            local_cluster_radius=local_cluster_radius,
         )
 
     else:
@@ -184,4 +210,3 @@ __all__ = [
     "HeightFieldTerrain",
     "is_point_in_collision",
 ]
-

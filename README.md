@@ -15,16 +15,15 @@ Multi-purpose quadcopter control stack with:
 - **Safety**: validation, limiting, watchdog (`safety_gate`)
 - **Hardware link**: CRSF adapter + ESP-NOW based TX/RX + protocol bridging
 
-## Demo (A*, RRT, RRT* path planner)
+## Demo (Python Sim & ROS2 Gazebo Sim)
 
 <p>
   <img src="docs/forest_rotor.png" alt="Forest RotorPy demo with quad pose overlay" width="49%">
-  <img src="docs/mountain_rotor.png" alt="Mountain RotorPy demo with quad pose overlay" width="49%">
+  <img src="docs/mountain_rrt_star_1.png" alt="Mountain path planner with RRT*" width="49%">
 </p>
 
 <p>
-  <img src="docs/mountain_rrt_star_0.png" alt="Mountain path planner with RRT*" width="49%">
-  <img src="docs/mountain_rrt_star_1.png" alt="Forest path planner with RRT*" width="49%">
+  <img src="docs/sim_demo_1.png" alt="ROS2 Gazebo simulation demo" width="98%">
 </p>
 
 ## Architecture (high level)
@@ -155,6 +154,13 @@ ros2 launch ground_station ground.launch.py
 # Fast headless backend
 ros2 launch sim_fast bringup.launch.py
 ```
+
+For the current tested Gazebo + terrain + planner demo commands (including dense forest and path visualization), use:
+- `ros2_ws/README.md` -> `Recommended Test Flows (Current)`
+
+### ROS2 Gazebo
+
+<img src="docs/sim_demo_2.png" alt="ROS2 Gazebo demo screenshot (additional)" width="900">
 
 ### Legacy ROS2 prototype scripts
 

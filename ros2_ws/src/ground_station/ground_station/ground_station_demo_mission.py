@@ -26,13 +26,17 @@ class GroundStationDemoMission(Node):
         self.declare_parameter('planner_service_topic', '/gs/planner/plan_path')
         self.declare_parameter('planning_mode', 'offboard')  # offboard | onboard
         self.declare_parameter('use_planner', True)
-        self.declare_parameter('planner_type', 'rrtstar')
-        self.declare_parameter('terrain_profile', 'plains')
+        self.declare_parameter('planner_type', 'astar')
+        self.declare_parameter('terrain_profile', 'forest')
+        self.declare_parameter('planner_call_timeout_sec', 30.0)
+        self.declare_parameter('mission_goal_xyz', [170.0, 120.0, 12.0])
+        self.declare_parameter('mission_via1_xyz', [20.0, 10.0, 3.0])
+        self.declare_parameter('mission_via2_xyz', [70.0, 40.0, 6.0])
         self.declare_parameter('loop_rate_hz', 5.0)
         self.declare_parameter('takeoff_wait_sec', 4.0)
         self.declare_parameter('hover_wait_sec', 2.0)
         self.declare_parameter('landing_wait_sec', 8.0)
-        self.declare_parameter('mission_timeout_sec', 30.0)
+        self.declare_parameter('mission_timeout_sec', 240.0)
 
         self.command_topic = self.get_parameter('command_topic').value
         self.mission_topic = self.get_parameter('mission_topic').value
@@ -43,6 +47,10 @@ class GroundStationDemoMission(Node):
         self.use_planner = bool(self.get_parameter('use_planner').value)
         self.planner_type = self.get_parameter('planner_type').value
         self.terrain_profile = self.get_parameter('terrain_profile').value
+        self.planner_call_timeout_sec = float(self.get_parameter('planner_call_timeout_sec').value)
+        self.mission_goal_xyz = list(self.get_parameter('mission_goal_xyz').value)
+        self.mission_via1_xyz = list(self.get_parameter('mission_via1_xyz').value)
+        self.mission_via2_xyz = list(self.get_parameter('mission_via2_xyz').value)
         self.loop_rate_hz = float(self.get_parameter('loop_rate_hz').value)
         self.takeoff_wait_sec = float(self.get_parameter('takeoff_wait_sec').value)
         self.hover_wait_sec = float(self.get_parameter('hover_wait_sec').value)
@@ -88,11 +96,10 @@ class GroundStationDemoMission(Node):
 
         q = Quaternion()
         q.w = 1.0
-        points = [
-            (2.0, 0.0, 1.5),
-            (2.0, 2.0, 1.5),
-            (0.0, 2.0, 1.2),
-        ]
+        via1 = tuple(float(v) for v in self.mission_via1_xyz[:3])
+        via2 = tuple(float(v) for v in self.mission_via2_xyz[:3])
+        goal = tuple(float(v) for v in self.mission_goal_xyz[:3])
+        points = [via1, via2, goal]
         for i, (x, y, z) in enumerate(points):
             wp = Waypoint()
             wp.pose.position.x = x
@@ -120,26 +127,47 @@ class GroundStationDemoMission(Node):
             self.get_logger().warn('Planner service unavailable; falling back to handcrafted mission.')
             return None
 
-        req = PlanPath.Request()
-        req.start = self.last_telemetry.pose
-        req.goal = goal_wp.pose
-        req.planner_type = str(self.planner_type)
-        req.terrain_profile = str(self.terrain_profile)
-        req.collision_inflation_m = 0.5
-        future = self.planner_client.call_async(req)
-        rclpy.spin_until_future_complete(self, future, timeout_sec=10.0)
-        if not future.done() or future.result() is None:
-            self.get_logger().warn('Planner future timed out/failed; falling back to handcrafted mission.')
-            return None
-        result = future.result()
-        if not result.success:
-            self.get_logger().warn(f'Planner returned failure: {result.message}')
-            return None
-        traj = result.trajectory
-        if traj.sequence_id == 0:
-            traj.sequence_id = 42
-        self.get_logger().info(f'Offboard planner generated {len(traj.waypoints)} waypoints')
-        return traj
+        planner_candidates = []
+        for p in [str(self.planner_type), 'astar', 'rrt']:
+            p_norm = p.strip().lower()
+            if p_norm and p_norm not in planner_candidates:
+                planner_candidates.append(p_norm)
+
+        for planner_type in planner_candidates:
+            req = PlanPath.Request()
+            req.start = self.last_telemetry.pose
+            req.goal = goal_wp.pose
+            req.planner_type = planner_type
+            req.terrain_profile = str(self.terrain_profile)
+            req.collision_inflation_m = 0.5
+
+            self.get_logger().info(
+                f"Requesting planner type='{planner_type}' terrain='{self.terrain_profile}'"
+            )
+            future = self.planner_client.call_async(req)
+            rclpy.spin_until_future_complete(self, future, timeout_sec=self.planner_call_timeout_sec)
+            if not future.done() or future.result() is None:
+                self.get_logger().warn(
+                    f"Planner '{planner_type}' timed out/failed after "
+                    f"{self.planner_call_timeout_sec:.1f}s"
+                )
+                continue
+
+            result = future.result()
+            if not result.success:
+                self.get_logger().warn(f"Planner '{planner_type}' failed: {result.message}")
+                continue
+
+            traj = result.trajectory
+            if traj.sequence_id == 0:
+                traj.sequence_id = 42
+            self.get_logger().info(
+                f"Offboard planner generated {len(traj.waypoints)} waypoints using {planner_type}"
+            )
+            return traj
+
+        self.get_logger().warn('All planner attempts failed; falling back to handcrafted mission.')
+        return None
 
     def _publish_demo_trajectory(self) -> None:
         base_traj = self._build_handcrafted_trajectory()

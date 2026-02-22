@@ -25,7 +25,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-
+            'terrain_marker_spawner_node = sim_gazebo.terrain_marker_spawner_node:main',
+            'terrain_surface_spawner_node = sim_gazebo.terrain_surface_spawner_node:main',
         ],
     },
 )

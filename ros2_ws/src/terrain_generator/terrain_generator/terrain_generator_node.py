@@ -28,6 +28,8 @@ class TerrainGeneratorNode(Node):
         self.declare_parameter('forest.radius_range', [0.5, 1.5])
         self.declare_parameter('forest.height_range', [5.0, 15.0])
         self.declare_parameter('forest.density', 0.7)
+        self.declare_parameter('forest.local_cluster_radius', 0.0)
+        self.declare_parameter('forest.local_cluster_num_trees', 0)
         
         # Mountains parameters
         self.declare_parameter('mountains.num_peaks', 15)
@@ -43,6 +45,7 @@ class TerrainGeneratorNode(Node):
         # Plains parameters
         self.declare_parameter('plains.num_obstacles', 10)
         self.declare_parameter('plains.obstacle_types', ['bush', 'rock'])
+        self.declare_parameter('plains.local_cluster_radius', 0.0)
         
         # Publisher
         self.pub_markers = self.create_publisher(MarkerArray, '/terrain/obstacles', 10)
@@ -78,11 +81,19 @@ class TerrainGeneratorNode(Node):
             radius_range = tuple(self.get_parameter('forest.radius_range').get_parameter_value().double_array_value)
             height_range = tuple(self.get_parameter('forest.height_range').get_parameter_value().double_array_value)
             density = self.get_parameter('forest.density').get_parameter_value().double_value
+            local_cluster_radius = self.get_parameter(
+                'forest.local_cluster_radius'
+            ).get_parameter_value().double_value
+            local_cluster_num_trees = self.get_parameter(
+                'forest.local_cluster_num_trees'
+            ).get_parameter_value().integer_value
             
             obstacles = generate_forest(
                 space_dim, grid_size=grid_size,
                 radius_range=radius_range, height_range=height_range,
-                density=density, start_pos=start_pos
+                density=density, start_pos=start_pos,
+                local_cluster_radius=local_cluster_radius,
+                local_cluster_num_trees=local_cluster_num_trees,
             )
             self.get_logger().info(f'Generated forest with {len(obstacles)} trees')
         
@@ -113,10 +124,14 @@ class TerrainGeneratorNode(Node):
         elif terrain_type == 'plains':
             num_obstacles = self.get_parameter('plains.num_obstacles').get_parameter_value().integer_value
             obstacle_types = self.get_parameter('plains.obstacle_types').get_parameter_value().string_array_value
+            local_cluster_radius = self.get_parameter(
+                'plains.local_cluster_radius'
+            ).get_parameter_value().double_value
             
             obstacles = generate_plains(
                 space_dim, num_obstacles=num_obstacles,
                 obstacle_types=obstacle_types, start_pos=start_pos
+                , local_cluster_radius=local_cluster_radius
             )
             self.get_logger().info(f'Generated plains with {len(obstacles)} obstacles')
         

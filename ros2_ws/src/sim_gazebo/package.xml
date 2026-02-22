@@ -13,6 +13,9 @@
   <exec_depend>rosgraph_msgs</exec_depend>
   <exec_depend>ros_gz_bridge</exec_depend>
   <exec_depend>ros_gz_sim</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>visualization_msgs</exec_depend>
+  <exec_depend>terrain_generator</exec_depend>
   <exec_depend>sim_bridge</exec_depend>
   <exec_depend>air_unit</exec_depend>
   <exec_depend>planner</exec_depend>

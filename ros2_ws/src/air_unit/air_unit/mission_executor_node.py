@@ -27,9 +27,13 @@ class MissionExecutorNode(Node):
         self.declare_parameter('planner_service_topic', '/uav/planner/plan_path')
         self.declare_parameter('control_rate_hz', 20.0)
         self.declare_parameter('position_kp', 0.8)
-        self.declare_parameter('max_speed_mps', 1.5)
+        self.declare_parameter('max_speed_mps', 2.5)
         self.declare_parameter('altitude_gain', 0.9)
-        self.declare_parameter('default_planner_type', 'rrtstar')
+        self.declare_parameter('heading_control_enabled', True)
+        self.declare_parameter('yaw_kp', 1.5)
+        self.declare_parameter('max_yaw_rate_rps', 1.2)
+        self.declare_parameter('heading_min_xy_error_m', 0.4)
+        self.declare_parameter('default_planner_type', 'astar')
         self.declare_parameter('default_terrain_profile', 'plains')
 
         self.mission_topic = self.get_parameter('mission_topic').value
@@ -42,6 +46,10 @@ class MissionExecutorNode(Node):
         self.position_kp = float(self.get_parameter('position_kp').value)
         self.max_speed_mps = float(self.get_parameter('max_speed_mps').value)
         self.altitude_gain = float(self.get_parameter('altitude_gain').value)
+        self.heading_control_enabled = bool(self.get_parameter('heading_control_enabled').value)
+        self.yaw_kp = float(self.get_parameter('yaw_kp').value)
+        self.max_yaw_rate_rps = float(self.get_parameter('max_yaw_rate_rps').value)
+        self.heading_min_xy_error_m = float(self.get_parameter('heading_min_xy_error_m').value)
         self.default_planner_type = self.get_parameter('default_planner_type').value
         self.default_terrain_profile = self.get_parameter('default_terrain_profile').value
 
@@ -61,6 +69,7 @@ class MissionExecutorNode(Node):
         self.pending_planner_future = None
         self.active_idx = 0
         self.current_pos = None
+        self.current_yaw = None
         self.current_mode = Command.MODE_IDLE
         self.planning_mode = Command.PLANNING_OFFBOARD
         self.manual_override = False
@@ -89,6 +98,10 @@ class MissionExecutorNode(Node):
             float(msg.pose.position.x),
             float(msg.pose.position.y),
             float(msg.pose.position.z),
+        )
+        q = msg.pose.orientation
+        self.current_yaw = self._yaw_from_quat(
+            float(q.x), float(q.y), float(q.z), float(q.w)
         )
 
     def _on_command(self, msg: Command) -> None:
@@ -258,12 +271,38 @@ class MissionExecutorNode(Node):
             cmd.linear.y *= scale
             cmd.linear.z *= scale
 
+        if self.heading_control_enabled:
+            xy_dist = math.hypot(dx, dy)
+            if self.current_yaw is not None and xy_dist > max(0.05, self.heading_min_xy_error_m):
+                desired_yaw = math.atan2(dy, dx)
+                yaw_err = self._wrap_angle(desired_yaw - self.current_yaw)
+                cmd.angular.z = max(
+                    -abs(self.max_yaw_rate_rps),
+                    min(abs(self.max_yaw_rate_rps), self.yaw_kp * yaw_err),
+                )
+                # Slightly reduce translational speed when badly misaligned.
+                align = max(0.2, math.cos(min(abs(yaw_err), math.pi / 2.0)))
+                cmd.linear.x *= align
+                cmd.linear.y *= align
+            else:
+                cmd.angular.z = 0.0
+
         self.pub_cmd.publish(cmd)
         self._publish_status(
             STATUS_ACTIVE,
             False,
             f'following wp {self.active_idx + 1}/{len(self.current_traj.waypoints)} dist={dist:.2f}m',
         )
+
+    @staticmethod
+    def _yaw_from_quat(x: float, y: float, z: float, w: float) -> float:
+        siny_cosp = 2.0 * (w * z + x * y)
+        cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
+        return math.atan2(siny_cosp, cosy_cosp)
+
+    @staticmethod
+    def _wrap_angle(a: float) -> float:
+        return math.atan2(math.sin(a), math.cos(a))
 
 
 def main(args=None) -> None:

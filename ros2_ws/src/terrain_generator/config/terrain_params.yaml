@@ -10,6 +10,8 @@ terrain_generator:
       radius_range: [0.5, 1.5]  # Tree radius range (m)
       height_range: [5.0, 15.0]  # Tree height range (m)
       density: 0.9  # Probability of tree in each grid cell (0-1)
+      local_cluster_radius: 90.0  # 0 disables; place trees near start_pos for Gazebo demos
+      local_cluster_num_trees: 120  # Extra dense local patch around start_pos
     
     # Mountains parameters
     mountains:
@@ -33,3 +35,4 @@ terrain_generator:
     plains:
       num_obstacles: 10
       obstacle_types: ['bush', 'rock']  # Options: 'bush', 'rock', 'tree'
+      local_cluster_radius: 50.0  # 0 disables; sample obstacles near start_pos
