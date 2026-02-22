@@ -113,6 +113,14 @@ python -m sim_py.run_sim --backend rotorpy
 
 ## Quick start (ROS 2)
 
+### V2 Gazebo / Ground-Air stack (new)
+
+The rebuilt Gazebo + ground-station / air-unit stack lives in `ros2_ws_v2` during migration.
+
+- Workspace docs / runbook: `ros2_ws_v2/README.md`
+- Primary sim bringup: `ros2 launch sim_gazebo bringup.launch.py`
+- Ground station bringup: `ros2 launch ground_station ground.launch.py`
+
 ### Build
 
 ```bash

@@ -19,9 +19,14 @@ import yaml
 
 # Ensure we can import the existing terrain_generator package.
 REPO_ROOT = Path(__file__).resolve().parents[1]
-ROS2_SRC = REPO_ROOT / "ros2_ws" / "src"
-if str(ROS2_SRC) not in sys.path:
-    sys.path.append(str(ROS2_SRC))
+ROS2_SRC_CANDIDATES = [
+    REPO_ROOT / "ros2_ws" / "src",
+    REPO_ROOT / "ros2_ws_legacy" / "src",
+    REPO_ROOT / "ros2_ws_v2" / "src",
+]
+for _ros2_src in ROS2_SRC_CANDIDATES:
+    if _ros2_src.exists() and str(_ros2_src) not in sys.path:
+        sys.path.append(str(_ros2_src))
 
 from terrain_generator.terrain_generator.forest_generator import generate_forest  # type: ignore  # noqa: E402
 from terrain_generator.terrain_generator.mountains_generator import (  # type: ignore  # noqa: E402,E501
@@ -63,14 +68,12 @@ def load_terrain_config(
     If no path is given, defaults to the ROS2 terrain_params.yaml.
     """
     if yaml_path is None:
-        yaml_path = (
-            REPO_ROOT
-            / "ros2_ws"
-            / "src"
-            / "terrain_generator"
-            / "config"
-            / "terrain_params.yaml"
-        )
+        candidates = [
+            REPO_ROOT / "ros2_ws" / "src" / "terrain_generator" / "config" / "terrain_params.yaml",
+            REPO_ROOT / "ros2_ws_legacy" / "src" / "terrain_generator" / "config" / "terrain_params.yaml",
+            REPO_ROOT / "ros2_ws_v2" / "src" / "terrain_generator" / "config" / "terrain_params.yaml",
+        ]
+        yaml_path = next((c for c in candidates if c.exists()), candidates[0])
     yaml_path = Path(yaml_path)
 
     # Explicit UTF-8 to avoid Windows cp1252 decode issues
