@@ -71,11 +71,16 @@ class _KeyboardReader:
             if not self._msvcrt.kbhit():
                 return None
             ch = self._msvcrt.getwch()
-            # Swallow Windows special-key prefix and the follow-up code.
             if ch in ("\x00", "\xe0"):
-                if self._msvcrt.kbhit():
-                    _ = self._msvcrt.getwch()
-                return None
+                if not self._msvcrt.kbhit():
+                    return None
+                code = self._msvcrt.getwch()
+                return {
+                    "H": "<UP>",
+                    "P": "<DOWN>",
+                    "K": "<LEFT>",
+                    "M": "<RIGHT>",
+                }.get(code)
             return ch
 
         assert self._select is not None
@@ -83,7 +88,27 @@ class _KeyboardReader:
         if not ready:
             return None
         try:
-            return sys.stdin.read(1)
+            ch = sys.stdin.read(1)
+            if ch != "\x1b":
+                return ch
+
+            # Arrow keys arrive as ESC [ A/B/C/D on most terminals.
+            ready2, _, _ = self._select.select([sys.stdin], [], [], 0.0)
+            if not ready2:
+                return "\x1b"
+            ch2 = sys.stdin.read(1)
+            if ch2 != "[":
+                return "\x1b"
+            ready3, _, _ = self._select.select([sys.stdin], [], [], 0.0)
+            if not ready3:
+                return "\x1b"
+            ch3 = sys.stdin.read(1)
+            return {
+                "A": "<UP>",
+                "B": "<DOWN>",
+                "C": "<RIGHT>",
+                "D": "<LEFT>",
+            }.get(ch3, "\x1b")
         except Exception:
             return None
 
@@ -148,8 +173,9 @@ class GroundStationKeyboardTeleopNode(Node):
     def _print_help(self) -> None:
         help_text = (
             "\nKeyboard Teleop (focus terminal)\n"
-            "  Move: w/s=+/-vx, a/d=+/-vy, r/f=+/-vz, q/e=+/-yaw_rate\n"
-            "  Reset: space=zero all, z=zero horizontal, x=zero vertical+yaw\n"
+            "  Move: arrows=pitch/roll (mapped to x/y velocity), q/e=+/-yaw_rate\n"
+            "  Throttle: space=up, f=down  (Shift-alone is not detectable in terminal teleop)\n"
+            "  Reset: z=zero all, x=zero horizontal, c=zero vertical+yaw\n"
             "  Scale: +/- adjusts command increment scale\n"
             "  Modes: m=manual, h=hover, t=takeoff, g=land, i=idle\n"
             "  Arm: u=arm, j=disarm\n"
@@ -184,15 +210,15 @@ class GroundStationKeyboardTeleopNode(Node):
         dv_z = float(self.args.vz_step) * self.scale
         dyaw = float(self.args.yaw_step) * self.scale
 
-        if k == "w":
+        if ch == "<UP>":
             self.vx += dv_xy
-        elif k == "s":
+        elif ch == "<DOWN>":
             self.vx -= dv_xy
-        elif k == "d":
+        elif ch == "<RIGHT>":
             self.vy += dv_xy
-        elif k == "a":
+        elif ch == "<LEFT>":
             self.vy -= dv_xy
-        elif k == "r":
+        elif k == " ":
             self.vz += dv_z
         elif k == "f":
             self.vz -= dv_z
@@ -200,11 +226,11 @@ class GroundStationKeyboardTeleopNode(Node):
             self.yaw_rate += dyaw
         elif k == "e":
             self.yaw_rate -= dyaw
-        elif k == " ":
-            self.vx = self.vy = self.vz = self.yaw_rate = 0.0
         elif k == "z":
-            self.vx = self.vy = 0.0
+            self.vx = self.vy = self.vz = self.yaw_rate = 0.0
         elif k == "x":
+            self.vx = self.vy = 0.0
+        elif k == "c":
             self.vz = self.yaw_rate = 0.0
         elif k in {"+", "="}:
             self.scale *= 1.25
