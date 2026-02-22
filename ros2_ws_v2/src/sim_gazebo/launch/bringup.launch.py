@@ -30,8 +30,8 @@ def generate_launch_description():
     )
     start_air_arg = DeclareLaunchArgument(
         'start_air_unit',
-        default_value='false',
-        description='Start air unit nodes (enabled in later commits)',
+        default_value='true',
+        description='Start air unit nodes',
     )
 
     gz_cmd = [
@@ -93,8 +93,6 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('run_smoke_cmd')),
     )
 
-    # Air unit nodes are wired here for later commits. Keeping them optional allows
-    # bringup smoke validation to focus on Gazebo + bridge first.
     air_nodes = [
         Node(
             package='air_unit',
