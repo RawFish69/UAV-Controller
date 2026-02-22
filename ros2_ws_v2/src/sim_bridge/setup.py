@@ -25,8 +25,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-    'gazebo_backend_adapter_node = sim_bridge.gazebo_backend_adapter_node:main',
-    'fastsim_backend_adapter_node = sim_bridge.fastsim_backend_adapter_node:main',
+            'gazebo_backend_adapter_node = sim_bridge.gazebo_backend_adapter_node:main',
+            'fastsim_backend_adapter_node = sim_bridge.fastsim_backend_adapter_node:main',
+            'gz_smoke_cmd_node = sim_bridge.gz_smoke_cmd_node:main',
         ],
     },
 )

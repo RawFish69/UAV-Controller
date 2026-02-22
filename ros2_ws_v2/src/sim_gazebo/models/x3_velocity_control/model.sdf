@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<sdf version="1.8">
+  <!--
+    Placeholder local model wrapper. The active V1 bringup uses
+    sim_gazebo/worlds/flat_world.sdf which embeds the upstream X3 include + plugins
+    directly to preserve the exact known-good joint/link/plugin names.
+  -->
+  <model name="x3_velocity_control">
+    <static>true</static>
+    <link name="placeholder">
+      <visual name="visual">
+        <geometry>
+          <box>
+            <size>0.01 0.01 0.01</size>
+          </box>
+        </geometry>
+      </visual>
+    </link>
+  </model>
+</sdf>
