@@ -1,0 +1,20 @@
+command_manager_node:
+  ros__parameters:
+    # Slow, conservative takeoff for Gazebo (default: 0.8 m/s)
+    takeoff_altitude_m: 3.0
+    takeoff_rate_mps: 0.8
+    # Require altitude to be above threshold for several control ticks before switching to hover.
+    takeoff_confirm_ticks: 12
+    # Gentle landing (default: 0.5 m/s)
+    land_rate_mps: 0.25
+    land_altitude_threshold_m: 0.15
+    # More ticks before disarm to avoid early cutoff (default: 5)
+    land_confirm_ticks: 8
+    # Active hover stabilization to prevent forward drift in HOVER mode.
+    hover_hold_enabled: true
+    # Softer gains to reduce oscillation / shaking in Gazebo.
+    hover_velocity_damping_xy: 0.6
+    hover_velocity_damping_z: 0.35
+    hover_altitude_kp: 1.2
+    hover_max_xy_speed_mps: 0.6
+    hover_max_vertical_speed_mps: 0.8

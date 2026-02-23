@@ -1,0 +1,19 @@
+terrain_generator:
+  ros__parameters:
+    terrain_type: 'forest'
+    # Keep world manageable for Gazebo, but dense enough to mirror SimPy-style forest behavior.
+    space_dim: [220.0, 180.0, 50.0]
+    start_pos: [0.0, 0.0, 0.0]
+    random_seed: 7
+    republish_period_sec: 5.0
+
+    forest:
+      # Old demo config (grid=10, density=0.35) produced ~33 trees.
+      # This denser profile is closer to SimPy usage.
+      grid_size: 18
+      radius_range: [0.5, 1.5]
+      height_range: [5.0, 15.0]
+      density: 0.85
+      # Extra local patch around start region, matching the "dense forest" feel.
+      local_cluster_radius: 80.0
+      local_cluster_num_trees: 100

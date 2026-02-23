@@ -31,7 +31,7 @@ class CylinderObstacle:
         """
         if len(point) == 2:
             x, y = point
-            z = 0
+            z = self.center[2] + self.height / 2.0
         else:
             x, y, z = point
         

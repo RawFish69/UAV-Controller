@@ -22,6 +22,8 @@ class TerrainGeneratorNode(Node):
         self.declare_parameter('terrain_type', 'forest')  # forest, mountains, plains
         self.declare_parameter('space_dim', [100.0, 100.0, 50.0])  # [x, y, z]
         self.declare_parameter('start_pos', [0.0, 0.0, 0.0])
+        self.declare_parameter('random_seed', -1)  # <0 disables deterministic seeding
+        self.declare_parameter('republish_period_sec', 5.0)  # <=0 disables periodic republish
         
         # Forest parameters
         self.declare_parameter('forest.grid_size', 10)
@@ -54,9 +56,14 @@ class TerrainGeneratorNode(Node):
         self.obstacles = []
         self.terrain_type = ''
         self.generate_and_publish()
-        
-        # Republish terrain periodically (every 5 seconds) to ensure RViz displays it
-        self.republish_timer = self.create_timer(5.0, self.republish_terrain)
+
+        republish_period_sec = float(self.get_parameter('republish_period_sec').value)
+        self.republish_timer = None
+        if republish_period_sec > 0.0:
+            # Republish terrain periodically to ensure RViz/Gazebo visual bridges still receive it.
+            self.republish_timer = self.create_timer(republish_period_sec, self.republish_terrain)
+        else:
+            self.get_logger().info('Terrain periodic republish disabled (republish_period_sec <= 0)')
         
         self.get_logger().info('Terrain generator node started')
     
@@ -68,6 +75,11 @@ class TerrainGeneratorNode(Node):
         
         space_dim = np.array(space_dim)
         start_pos = np.array(start_pos)
+
+        random_seed = int(self.get_parameter('random_seed').value)
+        if random_seed >= 0:
+            np.random.seed(random_seed)
+            self.get_logger().info(f'Using deterministic terrain seed={random_seed}')
         
         # Store for republishing
         self.terrain_type = terrain_type

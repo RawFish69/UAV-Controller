@@ -24,8 +24,17 @@ class CommandManagerNode(Node):
         self.declare_parameter('mission_cmd_timeout_sec', 1.0)
         self.declare_parameter('takeoff_altitude_m', 1.5)
         self.declare_parameter('takeoff_rate_mps', 0.8)
+        self.declare_parameter('takeoff_confirm_ticks', 8)
         self.declare_parameter('land_rate_mps', 0.5)
         self.declare_parameter('land_altitude_threshold_m', 0.15)
+        self.declare_parameter('land_confirm_ticks', 5)
+        # Hover hold (simple stabilizer): damps drift and holds current altitude.
+        self.declare_parameter('hover_hold_enabled', True)
+        self.declare_parameter('hover_velocity_damping_xy', 0.8)
+        self.declare_parameter('hover_velocity_damping_z', 0.8)
+        self.declare_parameter('hover_altitude_kp', 1.0)
+        self.declare_parameter('hover_max_xy_speed_mps', 1.5)
+        self.declare_parameter('hover_max_vertical_speed_mps', 0.8)
         self.declare_parameter('manual_scale_xy', 1.5)
         self.declare_parameter('manual_scale_z', 1.0)
         self.declare_parameter('manual_scale_yaw', 1.0)
@@ -42,8 +51,16 @@ class CommandManagerNode(Node):
         self.mission_cmd_timeout_sec = float(self.get_parameter('mission_cmd_timeout_sec').value)
         self.takeoff_altitude_m = float(self.get_parameter('takeoff_altitude_m').value)
         self.takeoff_rate_mps = float(self.get_parameter('takeoff_rate_mps').value)
+        self.takeoff_confirm_ticks = int(self.get_parameter('takeoff_confirm_ticks').value)
         self.land_rate_mps = float(self.get_parameter('land_rate_mps').value)
         self.land_altitude_threshold_m = float(self.get_parameter('land_altitude_threshold_m').value)
+        self.land_confirm_ticks = int(self.get_parameter('land_confirm_ticks').value)
+        self.hover_hold_enabled = bool(self.get_parameter('hover_hold_enabled').value)
+        self.hover_velocity_damping_xy = float(self.get_parameter('hover_velocity_damping_xy').value)
+        self.hover_velocity_damping_z = float(self.get_parameter('hover_velocity_damping_z').value)
+        self.hover_altitude_kp = float(self.get_parameter('hover_altitude_kp').value)
+        self.hover_max_xy_speed_mps = float(self.get_parameter('hover_max_xy_speed_mps').value)
+        self.hover_max_vertical_speed_mps = float(self.get_parameter('hover_max_vertical_speed_mps').value)
         self.manual_scale_xy = float(self.get_parameter('manual_scale_xy').value)
         self.manual_scale_z = float(self.get_parameter('manual_scale_z').value)
         self.manual_scale_yaw = float(self.get_parameter('manual_scale_yaw').value)
@@ -70,6 +87,12 @@ class CommandManagerNode(Node):
         self.last_raw_telemetry: Optional[Telemetry] = None
         self.last_output = Twist()
         self.status_text = 'idle'
+        self.takeoff_confirmed_count = 0
+        self.land_confirmed_count = 0
+        self._last_armed_state: bool | None = None  # track to suppress redundant enable publishes
+        self._enable_republish_tick: int = 0  # periodic republish when armed so backend/Gazebo get it
+        self._hover_target_altitude: Optional[float] = None
+        self._prev_mode = self.mode
 
         self.get_logger().info('Command manager started')
 
@@ -110,43 +133,100 @@ class CommandManagerNode(Node):
         enable = Bool()
         enable.data = bool(self.armed)
         cmd = Twist()
+        # Publish enable on state change; also republish periodically when armed so
+        # late-joining bridge or Gazebo reliably receive it (avoids drone never taking off).
+        _publish_enable = (self._last_armed_state != enable.data)
+        self._last_armed_state = enable.data
+        self._enable_republish_tick += 1
+        if self.armed and self._enable_republish_tick >= int(max(1, self.control_rate_hz)):
+            self._enable_republish_tick = 0
+            _publish_enable = True
         altitude = self._current_altitude()
 
         if not self.armed:
             self.status_text = 'idle/disarmed'
+            self.takeoff_confirmed_count = 0
+            self._hover_target_altitude = None
         elif self.manual_override or self.mode == Command.MODE_MANUAL_OVERRIDE:
             cmd = self.last_manual_cmd
             self.status_text = 'manual override'
+            self.takeoff_confirmed_count = 0
+            self._hover_target_altitude = None
         elif self.mode == Command.MODE_TAKEOFF:
             if altitude is not None and altitude >= self.takeoff_altitude_m:
-                self.mode = Command.MODE_HOVER
-                self.status_text = 'takeoff complete -> hover'
+                self.takeoff_confirmed_count += 1
+                if self.takeoff_confirmed_count >= self.takeoff_confirm_ticks:
+                    self.mode = Command.MODE_HOVER
+                    self.status_text = 'takeoff complete -> hover'
+                else:
+                    cmd.linear.z = self.takeoff_rate_mps
+                    self.status_text = (
+                        f'takeoff confirm ({self.takeoff_confirmed_count}/{self.takeoff_confirm_ticks})'
+                    )
             else:
+                self.takeoff_confirmed_count = 0
                 cmd.linear.z = self.takeoff_rate_mps
                 self.status_text = 'takeoff'
         elif self.mode == Command.MODE_HOVER:
-            self.status_text = 'hover'
+            self.takeoff_confirmed_count = 0
+            if self.hover_hold_enabled and self.last_raw_telemetry is not None:
+                if self._prev_mode != Command.MODE_HOVER or self._hover_target_altitude is None:
+                    self._hover_target_altitude = altitude
+                vx = float(self.last_raw_telemetry.twist.linear.x)
+                vy = float(self.last_raw_telemetry.twist.linear.y)
+                vz = float(self.last_raw_telemetry.twist.linear.z)
+                cmd.linear.x = max(
+                    -self.hover_max_xy_speed_mps,
+                    min(self.hover_max_xy_speed_mps, -self.hover_velocity_damping_xy * vx),
+                )
+                cmd.linear.y = max(
+                    -self.hover_max_xy_speed_mps,
+                    min(self.hover_max_xy_speed_mps, -self.hover_velocity_damping_xy * vy),
+                )
+                if altitude is not None and self._hover_target_altitude is not None:
+                    alt_err = float(self._hover_target_altitude) - float(altitude)
+                    z_cmd = self.hover_altitude_kp * alt_err - self.hover_velocity_damping_z * vz
+                else:
+                    z_cmd = -self.hover_velocity_damping_z * vz
+                cmd.linear.z = max(
+                    -self.hover_max_vertical_speed_mps,
+                    min(self.hover_max_vertical_speed_mps, z_cmd),
+                )
+                self.status_text = 'hover hold'
+            else:
+                self.status_text = 'hover'
         elif self.mode == Command.MODE_MISSION:
+            self.takeoff_confirmed_count = 0
             if mission_timeout <= self.mission_cmd_timeout_sec:
                 cmd = self.last_mission_cmd
                 self.status_text = 'mission tracking'
             else:
                 self.status_text = 'mission waiting for setpoint'
+            self._hover_target_altitude = None
         elif self.mode == Command.MODE_LAND:
+            self.takeoff_confirmed_count = 0
             if altitude is not None and altitude <= self.land_altitude_threshold_m:
-                self.armed = False
-                enable.data = False
-                self.mode = Command.MODE_IDLE
-                self.status_text = 'landed -> disarmed'
+                self.land_confirmed_count += 1
+                if self.land_confirmed_count >= self.land_confirm_ticks:
+                    self.armed = False
+                    enable.data = False
+                    self.mode = Command.MODE_IDLE
+                    self.land_confirmed_count = 0
+                    self.status_text = 'landed -> disarmed'
+                else:
+                    self.status_text = f'landing ({self.land_confirmed_count}/{self.land_confirm_ticks})'
             else:
+                self.land_confirmed_count = 0
                 cmd.linear.z = -abs(self.land_rate_mps)
                 self.status_text = 'landing'
         else:
             self.status_text = f'mode {self.mode} idle behavior'
 
         self.last_output = cmd
-        self.pub_backend_enable.publish(enable)
+        if _publish_enable:
+            self.pub_backend_enable.publish(enable)
         self.pub_backend_cmd.publish(cmd)
+        self._prev_mode = self.mode
 
         if self.last_raw_telemetry is not None:
             self._publish_enriched_telemetry(self.last_raw_telemetry)

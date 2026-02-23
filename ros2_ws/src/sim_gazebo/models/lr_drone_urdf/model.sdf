@@ -1,0 +1,94 @@
+<?xml version="1.0" ?>
+<!--
+  Static visual-only Gazebo preview model.
+  RViz uses lr_drone_urdf.urdf directly; this SDF avoids URDF->SDF
+  conversion differences (fixed-joint reduction / physics jitter).
+-->
+<sdf version="1.8">
+  <model name="lr_drone_urdf">
+    <static>true</static>
+    <self_collide>false</self_collide>
+    <allow_auto_disable>true</allow_auto_disable>
+
+    <link name="frame">
+      <pose>0 0 0 0 0 0</pose>
+      <visual name="frame_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://lr_drone_urdf/meshes/frame.stl</uri>
+            <scale>0.001 0.001 0.001</scale>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+
+    <link name="Prop_CCW">
+      <pose>0.061 0.059 0.016 0 0 0</pose>
+      <visual name="Prop_CCW_visual">
+        <pose>-1.786667014835495e-06 -2.535607082419229e-06 -0.003159470767759129 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://lr_drone_urdf/meshes/Prop_CCW.stl</uri>
+            <scale>0.001 0.001 0.001</scale>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+    <joint name="prop_ccw_fr_joint" type="fixed">
+      <parent>frame</parent>
+      <child>Prop_CCW</child>
+    </joint>
+
+    <link name="Prop_CCW_2">
+      <pose>-0.054 -0.036 0.016 0 0 0</pose>
+      <visual name="Prop_CCW_2_visual">
+        <pose>-1.786667014834537e-06 -2.535607082421665e-06 -0.003159470767759129 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://lr_drone_urdf/meshes/Prop_CCW_2.stl</uri>
+            <scale>0.001 0.001 0.001</scale>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+    <joint name="prop_ccw_2_bl_joint" type="fixed">
+      <parent>frame</parent>
+      <child>Prop_CCW_2</child>
+    </joint>
+
+    <link name="Prop_CW">
+      <pose>0.056 -0.036 0.016 0 0 0</pose>
+      <visual name="Prop_CW_visual">
+        <pose>-0.09258758687542626 -1.588095178977313e-06 -0.003159652129567835 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://lr_drone_urdf/meshes/Prop_CW.stl</uri>
+            <scale>0.001 0.001 0.001</scale>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+    <joint name="prop_cw_br_joint" type="fixed">
+      <parent>frame</parent>
+      <child>Prop_CW</child>
+    </joint>
+
+    <link name="Prop_CW_2">
+      <pose>-0.059 0.059 0.016 0 0 0</pose>
+      <visual name="Prop_CW_2_visual">
+        <pose>-0.09258758687542626 -1.588095178972589e-06 -0.003159652129567827 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://lr_drone_urdf/meshes/Prop_CW_2.stl</uri>
+            <scale>0.001 0.001 0.001</scale>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+    <joint name="prop_cw_2_fl_joint" type="fixed">
+      <parent>frame</parent>
+      <child>Prop_CW_2</child>
+    </joint>
+  </model>
+</sdf>

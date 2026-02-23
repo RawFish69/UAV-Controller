@@ -17,9 +17,9 @@ class GazeboBackendAdapterNode(Node):
         self.declare_parameter('backend_cmd_topic', '/uav/backend/cmd_twist')
         self.declare_parameter('backend_enable_topic', '/uav/backend/enable')
         self.declare_parameter('backend_odom_topic', '/uav/backend/odom')
-        self.declare_parameter('gz_cmd_topic', '/X3/gazebo/command/twist')
-        self.declare_parameter('gz_enable_topic', '/X3/enable')
-        self.declare_parameter('gz_odom_topic', '/model/x3/odometry')
+        self.declare_parameter('gz_cmd_topic', '/lr_drone/gazebo/command/twist')
+        self.declare_parameter('gz_enable_topic', '/lr_drone/enable')
+        self.declare_parameter('gz_odom_topic', '/model/lr_drone/odometry')
         self.declare_parameter('command_timeout_sec', 1.0)
         self.declare_parameter('publish_zero_on_timeout', True)
 
@@ -60,9 +60,13 @@ class GazeboBackendAdapterNode(Node):
         )
 
         self.timeout_timer = self.create_timer(0.1, self._on_timeout_check)
+        self.enable_republish_timer = self.create_timer(1.0, self._republish_enable_if_armed)
+
+        self._startup_hover_active = True
+        self._startup_hover_timer = self.create_timer(0.05, self._publish_startup_hover)
 
         self.get_logger().info(
-            'Gazebo backend adapter started: %s -> %s, %s -> %s, %s -> %s'
+            'Gazebo backend adapter started (startup hover active): %s -> %s, %s -> %s, %s -> %s'
             % (
                 self.backend_cmd_topic,
                 self.gz_cmd_topic,
@@ -73,17 +77,41 @@ class GazeboBackendAdapterNode(Node):
             )
         )
 
+    def _publish_startup_hover(self) -> None:
+        """Keep the drone inert on the ground until the first arm command arrives."""
+        if not self._startup_hover_active:
+            self._startup_hover_timer.cancel()
+            return
+        enable_msg = Bool()
+        enable_msg.data = False
+        self.pub_gz_enable.publish(enable_msg)
+
     def _on_backend_cmd(self, msg: Twist) -> None:
+        if self._startup_hover_active:
+            return
         self.last_cmd = msg
         self.last_cmd_time = self.get_clock().now()
         self.pub_gz_cmd.publish(msg)
 
     def _on_backend_enable(self, msg: Bool) -> None:
+        if self._startup_hover_active:
+            if msg.data:
+                self._startup_hover_active = False
+                self.get_logger().info('Arm received – ending startup hover, handing control to command manager')
+            else:
+                return
         self.enabled = bool(msg.data)
         self.pub_gz_enable.publish(msg)
 
+    def _republish_enable_if_armed(self) -> None:
+        """Re-publish enable to Gazebo periodically when armed so the plugin reliably gets it."""
+        if not self.enabled:
+            return
+        msg = Bool()
+        msg.data = True
+        self.pub_gz_enable.publish(msg)
+
     def _on_gz_odom(self, msg: Odometry) -> None:
-        # Normalize frame naming expected by V2 stack.
         if msg.header.frame_id in ('', 'odom'):
             msg.header.frame_id = 'map'
         if msg.child_frame_id == '':
@@ -100,7 +128,6 @@ class GazeboBackendAdapterNode(Node):
             return
 
         zero = Twist()
-        # Only publish if previous command was nonzero to avoid flooding.
         if not self._twist_is_zero(self.last_cmd):
             self.pub_gz_cmd.publish(zero)
             self.last_cmd = zero

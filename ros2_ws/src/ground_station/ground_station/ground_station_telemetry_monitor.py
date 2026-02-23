@@ -1,3 +1,4 @@
+import math
 import time
 
 import rclpy
@@ -25,6 +26,21 @@ class GroundStationTelemetryMonitor(Node):
         self.create_subscription(MissionStatus, self.mission_status_topic, self._on_mission_status, 20)
         self.get_logger().info(f'Monitoring telemetry on {self.telemetry_topic}')
 
+    @staticmethod
+    def _quat_to_rpy_deg(q) -> tuple[float, float, float]:
+        """Roll, pitch, yaw in degrees from quaternion (x,y,z,w)."""
+        x, y, z, w = float(q.x), float(q.y), float(q.z), float(q.w)
+        sinr_cosp = 2.0 * (w * x + y * z)
+        cosr_cosp = 1.0 - 2.0 * (x * x + y * y)
+        roll = math.degrees(math.atan2(sinr_cosp, cosr_cosp))
+        sinp = 2.0 * (w * y - z * x)
+        sinp = max(-1.0, min(1.0, sinp))
+        pitch = math.degrees(math.asin(sinp))
+        siny_cosp = 2.0 * (w * z + x * y)
+        cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
+        yaw = math.degrees(math.atan2(siny_cosp, cosy_cosp))
+        return roll, pitch, yaw
+
     def _on_telemetry(self, msg: Telemetry) -> None:
         now_t = time.monotonic()
         if self.telemetry_log_period_sec > 0.0:
@@ -34,9 +50,12 @@ class GroundStationTelemetryMonitor(Node):
 
         p = msg.pose.position
         v = msg.twist.linear
+        q = msg.pose.orientation
+        roll_deg, pitch_deg, yaw_deg = self._quat_to_rpy_deg(q)
         self.get_logger().info(
             f"mode={msg.current_mode} armed={msg.armed} manual={msg.manual_override_active} "
             f"pos=({p.x:.2f},{p.y:.2f},{p.z:.2f}) vel=({v.x:.2f},{v.y:.2f},{v.z:.2f}) "
+            f"rpy=({roll_deg:.1f},{pitch_deg:.1f},{yaw_deg:.1f})° "
             f"bat={msg.battery_percent:.1f}% status='{msg.status_text}'"
         )
 

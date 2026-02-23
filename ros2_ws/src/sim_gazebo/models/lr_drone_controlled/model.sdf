@@ -1,0 +1,190 @@
+<?xml version="1.0" ?>
+<!--
+  lr_drone_controlled – frame-fixed prop visuals to avoid physics "entity not in entity map" errors.
+  Propellers are drawn on the frame at motor positions; rotor links remain for MulticopterMotorModel
+  (no visuals on rotor links to avoid link entity sync issues in gz-sim).
+-->
+<sdf version="1.8">
+  <model name="lr_drone_controlled">
+    <self_collide>false</self_collide>
+    <static>false</static>
+
+    <!-- ===== FRAME (body) + frame-fixed prop visuals ===== -->
+    <link name="frame">
+      <inertial>
+        <!-- Shift inertial reference toward the 4-motor centroid in XY for better quad symmetry -->
+        <pose>0.0010000000000000 0.0115000000000000 0.0101809948561719 0 0 0</pose>
+        <mass>0.23217587194557315</mass>
+        <inertia>
+          <ixx>0.0004083852903728778</ixx>
+          <ixy>-2.9590098143706412e-08</ixy>
+          <ixz>-1.3094636505331754e-07</ixz>
+          <iyy>0.0001870188217089682</iyy>
+          <iyz>-2.5468777824759497e-05</iyz>
+          <izz>0.000543400067180607</izz>
+        </inertia>
+      </inertial>
+      <collision name="frame_collision">
+        <pose>0.00066 0.03174 0.0125 0 0 0</pose>
+        <geometry>
+          <box><size>0.11 0.12 0.025</size></box>
+        </geometry>
+      </collision>
+      <visual name="frame_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://lr_drone_urdf/meshes/frame.stl</uri>
+            <scale>0.001 0.001 0.001</scale>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>0.15 0.15 0.15 1</ambient>
+          <diffuse>0.2 0.2 0.2 1</diffuse>
+        </material>
+      </visual>
+      <!-- Frame-fixed prop visuals at motor positions (motor_xyz + mesh_origin from lr_drone_alignment.yaml) -->
+      <!-- Front-right: Prop_CCW -->
+      <visual name="Prop_CCW_frame_fixed">
+        <pose>0.061 0.059 0.012840529232240871 0 0 0</pose>
+        <geometry>
+          <mesh><uri>model://lr_drone_urdf/meshes/Prop_CCW.stl</uri><scale>0.001 0.001 0.001</scale></mesh>
+        </geometry>
+        <material><ambient>0.1 0.1 0.4 1</ambient><diffuse>0.15 0.15 0.5 1</diffuse></material>
+      </visual>
+      <visual name="Prop_CCW_2_frame_fixed">
+        <pose>-0.054 -0.036 0.01284 0 0 0</pose>
+        <geometry>
+          <mesh><uri>model://lr_drone_urdf/meshes/Prop_CCW_2.stl</uri><scale>0.001 0.001 0.001</scale></mesh>
+        </geometry>
+        <material><ambient>0.1 0.1 0.4 1</ambient><diffuse>0.15 0.15 0.5 1</diffuse></material>
+      </visual>
+      <visual name="Prop_CW_frame_fixed">
+        <pose>-0.0366 -0.036 0.01284 0 0 0</pose>
+        <geometry>
+          <mesh><uri>model://lr_drone_urdf/meshes/Prop_CW.stl</uri><scale>0.001 0.001 0.001</scale></mesh>
+        </geometry>
+        <material><ambient>0.4 0.1 0.1 1</ambient><diffuse>0.5 0.15 0.15 1</diffuse></material>
+      </visual>
+      <!-- Front-left: Prop_CW_2 position, Prop_CCW_2 mesh (loads reliably) with red material -->
+      <visual name="Prop_CW_2_frame_fixed">
+        <pose>-0.059 0.059 0.012840347870432173 0 0 0</pose>
+        <geometry>
+          <mesh><uri>model://lr_drone_urdf/meshes/Prop_CCW_2.stl</uri><scale>0.001 0.001 0.001</scale></mesh>
+        </geometry>
+        <material><ambient>0.4 0.1 0.1 1</ambient><diffuse>0.5 0.15 0.15 1</diffuse></material>
+      </visual>
+    </link>
+
+    <!-- ===== ROTOR 0 – Front-right CCW ===== -->
+    <joint name="prop_ccw_fr_joint" type="revolute">
+      <pose relative_to="frame">0.061 0.059 0.016 0 0 0</pose>
+      <parent>frame</parent>
+      <child>Prop_CCW</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit><lower>-1e16</lower><upper>1e16</upper></limit>
+        <dynamics><damping>0.0001</damping><friction>0</friction></dynamics>
+      </axis>
+    </joint>
+    <link name="Prop_CCW">
+      <pose relative_to="prop_ccw_fr_joint">0 0 0 0 0 0</pose>
+      <gravity>false</gravity>
+      <self_collide>false</self_collide>
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>
+        <mass>0.0001</mass>
+        <inertia>
+          <ixx>1e-08</ixx><ixy>0</ixy><ixz>0</ixz>
+          <iyy>1e-08</iyy><iyz>0</iyz><izz>2e-08</izz>
+        </inertia>
+      </inertial>
+    </link>
+
+    <!-- ===== ROTOR 1 – Back-left CCW ===== -->
+    <joint name="prop_ccw_2_bl_joint" type="revolute">
+      <pose relative_to="frame">-0.054 -0.036 0.016 0 0 0</pose>
+      <parent>frame</parent>
+      <child>Prop_CCW_2</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit><lower>-1e16</lower><upper>1e16</upper></limit>
+        <dynamics><damping>0.0001</damping><friction>0</friction></dynamics>
+      </axis>
+    </joint>
+    <link name="Prop_CCW_2">
+      <pose relative_to="prop_ccw_2_bl_joint">0 0 0 0 0 0</pose>
+      <gravity>false</gravity>
+      <self_collide>false</self_collide>
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>
+        <mass>0.0001</mass>
+        <inertia>
+          <ixx>1e-08</ixx><ixy>0</ixy><ixz>0</ixz>
+          <iyy>1e-08</iyy><iyz>0</iyz><izz>2e-08</izz>
+        </inertia>
+      </inertial>
+    </link>
+
+    <!-- ===== ROTOR 2 – Back-right CW ===== -->
+    <!--
+      CW prop STL meshes were exported with a different CAD-local origin,
+      resulting in a large negative X visual offset.  This is intentional
+      and matches the RViz URDF visual origin exactly.
+    -->
+    <joint name="prop_cw_br_joint" type="revolute">
+      <pose relative_to="frame">0.056 -0.036 0.016 0 0 0</pose>
+      <parent>frame</parent>
+      <child>Prop_CW</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit><lower>-1e16</lower><upper>1e16</upper></limit>
+        <dynamics><damping>0.0001</damping><friction>0</friction></dynamics>
+      </axis>
+    </joint>
+    <link name="Prop_CW">
+      <pose relative_to="prop_cw_br_joint">0 0 0 0 0 0</pose>
+      <gravity>false</gravity>
+      <self_collide>false</self_collide>
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>
+        <mass>0.0001</mass>
+        <inertia>
+          <ixx>1e-08</ixx><ixy>0</ixy><ixz>0</ixz>
+          <iyy>1e-08</iyy><iyz>0</iyz><izz>2e-08</izz>
+        </inertia>
+      </inertial>
+    </link>
+
+    <!-- ===== ROTOR 3 – Front-left CW ===== -->
+    <joint name="prop_cw_2_fl_joint" type="revolute">
+      <pose relative_to="frame">-0.059 0.059 0.016 0 0 0</pose>
+      <parent>frame</parent>
+      <child>Prop_CW_2</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit><lower>-1e16</lower><upper>1e16</upper></limit>
+        <dynamics><damping>0.0001</damping><friction>0</friction></dynamics>
+      </axis>
+    </joint>
+    <link name="Prop_CW_2">
+      <pose relative_to="prop_cw_2_fl_joint">0 0 0 0 0 0</pose>
+      <gravity>false</gravity>
+      <self_collide>false</self_collide>
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>
+        <mass>0.0001</mass>
+        <inertia>
+          <ixx>1e-08</ixx><ixy>0</ixy><ixz>0</ixz>
+          <iyy>1e-08</iyy><iyz>0</iyz><izz>2e-08</izz>
+        </inertia>
+      </inertial>
+      <!-- Minimal visual so plugin may not draw a full floating prop; real prop is on frame (Prop_CW_2_frame_fixed) -->
+      <visual name="Prop_CW_2_link_placeholder">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry><sphere><radius>0.0005</radius></sphere></geometry>
+        <material><ambient>0.2 0.2 0.2 0.01</ambient><diffuse>0.2 0.2 0.2 0.01</diffuse></material>
+      </visual>
+    </link>
+  </model>
+</sdf>
