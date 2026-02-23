@@ -1,7 +1,7 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 
 
@@ -9,11 +9,21 @@ def generate_launch_description():
     monitor_arg = DeclareLaunchArgument('start_monitor', default_value='true')
     demo_arg = DeclareLaunchArgument('start_demo', default_value='false')
     planner_arg = DeclareLaunchArgument('start_planner', default_value='false')
+    use_planner_params_arg = DeclareLaunchArgument(
+        'use_planner_params_file',
+        default_value='false',
+    )
+    planner_params_arg = DeclareLaunchArgument(
+        'planner_params_file',
+        default_value='',
+    )
 
     return LaunchDescription([
         monitor_arg,
         demo_arg,
         planner_arg,
+        use_planner_params_arg,
+        planner_params_arg,
         Node(
             package='ground_station',
             executable='ground_station_telemetry_monitor',
@@ -34,6 +44,27 @@ def generate_launch_description():
             name='planner_server_node',
             namespace='gs/planner',
             output='screen',
-            condition=IfCondition(LaunchConfiguration('start_planner')),
+            condition=IfCondition(PythonExpression([
+                "'",
+                LaunchConfiguration('start_planner'),
+                "' == 'true' and '",
+                LaunchConfiguration('use_planner_params_file'),
+                "' != 'true'",
+            ])),
+        ),
+        Node(
+            package='planner',
+            executable='planner_server_node',
+            name='planner_server_node',
+            namespace='gs/planner',
+            output='screen',
+            parameters=[LaunchConfiguration('planner_params_file')],
+            condition=IfCondition(PythonExpression([
+                "'",
+                LaunchConfiguration('start_planner'),
+                "' == 'true' and '",
+                LaunchConfiguration('use_planner_params_file'),
+                "' == 'true'",
+            ])),
         ),
     ])

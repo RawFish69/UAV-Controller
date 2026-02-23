@@ -1,36 +1,15 @@
 <?xml version="1.0" ?>
-<!--
-  Flat-ground world with the lr_drone custom quadcopter.
-
-  The drone spawns ~2 cm above the ground plane so the frame collision box
-  rests on the surface without clipping.  Yaw is set to -90 deg to match
-  the CAD forward direction with the ENU X-axis.
-
-  The model is loaded via <include> from models/lr_drone_controlled.
-  Multicopter plugins are attached here so the model SDF stays reusable.
-
-  OdometryPublisher topic: /model/lr_drone/odometry  (bridge config)
-  Command topic:           /lr_drone/gazebo/command/twist
-  Enable topic:            /lr_drone/enable
--->
 <sdf version="1.8">
   <world name="uav_flat_world">
-
-    <!-- Physics tuned for a ~230 g micro-quad: 4 ms step, real-time. -->
-    <physics name="4ms_step" type="ignored">
+    <physics name="physics" type="ignored">
       <max_step_size>0.004</max_step_size>
       <real_time_factor>1.0</real_time_factor>
-      <real_time_update_rate>250</real_time_update_rate>
     </physics>
 
-    <plugin filename="gz-sim-physics-system"
-            name="gz::sim::systems::Physics"/>
-    <plugin filename="gz-sim-user-commands-system"
-            name="gz::sim::systems::UserCommands"/>
-    <plugin filename="gz-sim-scene-broadcaster-system"
-            name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
 
-    <!-- Sunlight -->
     <light type="directional" name="sun">
       <cast_shadows>true</cast_shadows>
       <pose>0 0 10 0 0 0</pose>
@@ -45,18 +24,23 @@
       <direction>-0.5 0.1 -0.9</direction>
     </light>
 
-    <!-- Ground -->
     <model name="ground_plane">
       <static>true</static>
       <link name="link">
         <collision name="collision">
           <geometry>
-            <plane><normal>0 0 1</normal><size>200 200</size></plane>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>200 200</size>
+            </plane>
           </geometry>
         </collision>
         <visual name="visual">
           <geometry>
-            <plane><normal>0 0 1</normal><size>200 200</size></plane>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>200 200</size>
+            </plane>
           </geometry>
           <material>
             <ambient>0.85 0.85 0.85 1</ambient>
@@ -67,18 +51,18 @@
       </link>
     </model>
 
-    <!-- ================================================================
-         lr_drone – custom quadcopter with multicopter plugins
-         Spawn height z=1.0 keeps the drone well above ground (safe hover height).
-         ================================================================ -->
+    <!-- Local lr_drone SDF model + multicopter plugin configuration (reusing/tuned X3 constants as a first-pass profile). -->
     <include>
       <name>lr_drone</name>
-      <pose>0 0 0.05 0 0 -1.5708</pose>
+      <!-- Spawn at 0.3m so the drone settles onto the ground rather than clipping through it.
+           Higher spawn reduces physics bouncing while disarmed, which prevents Gazebo auto-pause flicker. -->
+      <!-- yaw=0: drone faces +X (front). Use 1.5708 for +Y, -1.5708 for -Y -->
+      <pose>0 0 0.3 0 0 0</pose>
       <uri>model://lr_drone_controlled</uri>
+      <!-- For this custom included SDF, multicopter plugins resolve links/joints by local names
+           (`frame`, `Prop_*`, `prop_*`). `robotNamespace` only affects transport topics. -->
 
-      <!-- ── Motor models (one per rotor) ── -->
-
-      <plugin filename="gz-sim-multicopter-motor-model-system"
+        <plugin filename="gz-sim-multicopter-motor-model-system"
               name="gz::sim::systems::MulticopterMotorModel">
         <robotNamespace>lr_drone</robotNamespace>
         <jointName>prop_ccw_fr_joint</jointName>
@@ -87,7 +71,7 @@
         <timeConstantUp>0.0125</timeConstantUp>
         <timeConstantDown>0.025</timeConstantDown>
         <maxRotVelocity>550.0</maxRotVelocity>
-        <motorConstant>4.0e-06</motorConstant>
+        <motorConstant>4.00000e-06</motorConstant>
         <momentConstant>0.016</momentConstant>
         <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
         <actuator_number>0</actuator_number>
@@ -107,7 +91,7 @@
         <timeConstantUp>0.0125</timeConstantUp>
         <timeConstantDown>0.025</timeConstantDown>
         <maxRotVelocity>550.0</maxRotVelocity>
-        <motorConstant>4.0e-06</motorConstant>
+        <motorConstant>4.00000e-06</motorConstant>
         <momentConstant>0.016</momentConstant>
         <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
         <actuator_number>1</actuator_number>
@@ -127,7 +111,7 @@
         <timeConstantUp>0.0125</timeConstantUp>
         <timeConstantDown>0.025</timeConstantDown>
         <maxRotVelocity>550.0</maxRotVelocity>
-        <motorConstant>4.0e-06</motorConstant>
+        <motorConstant>4.00000e-06</motorConstant>
         <momentConstant>0.016</momentConstant>
         <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
         <actuator_number>2</actuator_number>
@@ -147,7 +131,7 @@
         <timeConstantUp>0.0125</timeConstantUp>
         <timeConstantDown>0.025</timeConstantDown>
         <maxRotVelocity>550.0</maxRotVelocity>
-        <motorConstant>4.0e-06</motorConstant>
+        <motorConstant>4.00000e-06</motorConstant>
         <momentConstant>0.016</momentConstant>
         <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
         <actuator_number>3</actuator_number>
@@ -158,52 +142,46 @@
         <motorType>velocity</motorType>
       </plugin>
 
-      <!-- ── Velocity controller ── -->
-
       <plugin filename="gz-sim-multicopter-control-system"
               name="gz::sim::systems::MulticopterVelocityControl">
         <robotNamespace>lr_drone</robotNamespace>
         <commandSubTopic>gazebo/command/twist</commandSubTopic>
         <enableSubTopic>enable</enableSubTopic>
         <comLinkName>frame</comLinkName>
-        <!-- Moderate XY velocity gains; strong Z for altitude. Attitude gains high enough
-             to prevent tipping; angular rate gains doubled from baseline for damping. -->
-        <velocityGain>2.0 2.0 5.0</velocityGain>
-        <attitudeGain>0.25 0.35 0.05</attitudeGain>
-        <angularRateGain>0.08 0.1 0.035</angularRateGain>
-        <maximumLinearAcceleration>2.5 2.5 4.0</maximumLinearAcceleration>
-        <maximumLinearVelocity>2.0 2.0 2.5</maximumLinearVelocity>
-        <maximumAngularVelocity>0.5 0.5 0.5</maximumAngularVelocity>
+        <velocityGain>0.8 0.8 1.0</velocityGain>
+        <attitudeGain>0.5 0.7 0.08</attitudeGain>
+        <angularRateGain>0.08 0.10 0.04</angularRateGain>
+        <maximumLinearAcceleration>0.8 0.8 0.8</maximumLinearAcceleration>
+        <maximumLinearVelocity>1.2 1.2 1.0</maximumLinearVelocity>
+        <maximumAngularVelocity>0.8 0.8 0.8</maximumAngularVelocity>
 
         <rotorConfiguration>
           <rotor>
             <jointName>prop_ccw_fr_joint</jointName>
-            <forceConstant>4.0e-06</forceConstant>
+            <forceConstant>4.00000e-06</forceConstant>
             <momentConstant>0.016</momentConstant>
             <direction>1</direction>
           </rotor>
           <rotor>
             <jointName>prop_ccw_2_bl_joint</jointName>
-            <forceConstant>4.0e-06</forceConstant>
+            <forceConstant>4.00000e-06</forceConstant>
             <momentConstant>0.016</momentConstant>
             <direction>1</direction>
           </rotor>
           <rotor>
             <jointName>prop_cw_br_joint</jointName>
-            <forceConstant>4.0e-06</forceConstant>
+            <forceConstant>4.00000e-06</forceConstant>
             <momentConstant>0.016</momentConstant>
             <direction>-1</direction>
           </rotor>
           <rotor>
             <jointName>prop_cw_2_fl_joint</jointName>
-            <forceConstant>4.0e-06</forceConstant>
+            <forceConstant>4.00000e-06</forceConstant>
             <momentConstant>0.016</momentConstant>
             <direction>-1</direction>
           </rotor>
         </rotorConfiguration>
       </plugin>
-
-      <!-- ── Odometry ── -->
 
       <plugin filename="gz-sim-odometry-publisher-system"
               name="gz::sim::systems::OdometryPublisher">

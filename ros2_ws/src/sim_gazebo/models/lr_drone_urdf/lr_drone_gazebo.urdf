@@ -1,0 +1,115 @@
+<?xml version='1.0' encoding='utf-8'?>
+<robot name="lr_drone_urdf">
+    <link name="frame">
+        <inertial>
+            <origin xyz="0.0006607868311987573 0.03173560348824097 0.010180994856171927" rpy="0.0 0.0 0.0" />
+            <mass value="0.23217587194557315" />
+            <inertia ixx="0.0004083852903728778" iyy="0.0001870188217089682" izz="0.000543400067180607" ixy="-2.9590098143706412e-08" iyz="-2.5468777824759497e-05" ixz="-1.3094636505331754e-07" />
+        </inertial>
+        <visual name="frame_visual">
+            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+            <geometry>
+                <mesh filename="model://lr_drone_urdf/meshes/frame.stl" scale="0.001 0.001 0.001" />
+            </geometry>
+        </visual>
+        <!-- Use a simple primitive collision for dynamic stability in Gazebo.
+             The full CAD frame mesh collision is too complex / unstable for this model. -->
+        <collision name="frame_collision">
+            <!-- Lift the simplified collision box so its bottom sits at frame z=0 (avoid startup ground clipping). -->
+            <origin xyz="0.00066 0.03174 0.0125" rpy="0.0 0.0 0.0" />
+            <geometry>
+                <box size="0.11 0.12 0.025" />
+            </geometry>
+        </collision>
+    </link>
+    <link name="Prop_CCW">
+        <inertial>
+            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+            <mass value="0.012596287659474013" />
+            <inertia ixx="2.0219652064262122e-06" iyy="2.019457095591482e-06" izz="3.977217320159756e-06" ixy="-1.275010200847682e-11" iyz="-9.382923209590303e-11" ixz="-5.2431809638518206e-11" />
+        </inertial>
+        <visual name="Prop_CCW_visual">
+            <origin xyz="-1.786667014835495e-06 -2.535607082419229e-06 -0.003159470767759129" rpy="0 0 0" />
+            <geometry>
+                <mesh filename="model://lr_drone_urdf/meshes/Prop_CCW.stl" scale="0.001 0.001 0.001" />
+            </geometry>
+        </visual>
+    </link>
+    <!-- CW props were exported in a different CAD-local mesh frame; large X mesh offsets are intentional. -->
+    <link name="Prop_CW">
+        <inertial>
+            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+            <mass value="0.012596765270385016" />
+            <inertia ixx="2.020610726494196e-06" iyy="2.0195234159707207e-06" izz="3.976305649899198e-06" ixy="2.376134787176752e-10" iyz="-1.0050622148319561e-10" ixz="6.113431965794936e-11" />
+        </inertial>
+        <visual name="Prop_CW_visual">
+            <origin xyz="-0.09258758687542626 -1.588095178977313e-06 -0.003159652129567835" rpy="0 0 0" />
+            <geometry>
+                <mesh filename="model://lr_drone_urdf/meshes/Prop_CW.stl" scale="0.001 0.001 0.001" />
+            </geometry>
+        </visual>
+    </link>
+    <link name="Prop_CCW_2">
+        <inertial>
+            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+            <mass value="0.012596287659474013" />
+            <inertia ixx="2.021965206426237e-06" iyy="2.019457095591483e-06" izz="3.977217320159756e-06" ixy="-1.275010201495191e-11" iyz="-9.382923209513965e-11" ixz="-5.243180964030689e-11" />
+        </inertial>
+        <visual name="Prop_CCW_2_visual">
+            <origin xyz="-1.786667014834537e-06 -2.535607082421665e-06 -0.003159470767759129" rpy="0 0 0" />
+            <geometry>
+                <mesh filename="model://lr_drone_urdf/meshes/Prop_CCW_2.stl" scale="0.001 0.001 0.001" />
+            </geometry>
+        </visual>
+    </link>
+    <!-- CW props were exported in a different CAD-local mesh frame; large X mesh offsets are intentional. -->
+    <link name="Prop_CW_2">
+        <inertial>
+            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+            <mass value="0.012596765270385016" />
+            <inertia ixx="2.020610726494186e-06" iyy="2.019523415970403e-06" izz="3.976305649898883e-06" ixy="2.376134787176749e-10" iyz="-1.0050622148591066e-10" ixz="6.113431965797645e-11" />
+        </inertial>
+        <visual name="Prop_CW_2_visual">
+            <origin xyz="-0.09258758687542626 -1.588095178972589e-06 -0.003159652129567827" rpy="0 0 0" />
+            <geometry>
+                <mesh filename="model://lr_drone_urdf/meshes/Prop_CW_2.stl" scale="0.001 0.001 0.001" />
+            </geometry>
+        </visual>
+    </link>
+
+    <!--
+      Prop-to-frame preview joints.
+      In the Gazebo preview URDF we keep props fixed to avoid URDF-conversion / physics jitter.
+      Joint origins are the motor hub centers in the frame link coordinate system.
+      Update `lr_drone_alignment.yaml` + run the generator script to keep URDF/SDF variants in sync.
+    -->
+
+    <!-- Front-right motor: Prop_CCW -->
+    <joint name="prop_ccw_fr_joint" type="fixed">
+        <parent link="frame" />
+        <child link="Prop_CCW" />
+        <origin xyz="0.061 0.059 0.016" rpy="0 0 0" />
+    </joint>
+
+    <!-- Back-left motor: Prop_CCW_2 -->
+    <joint name="prop_ccw_2_bl_joint" type="fixed">
+        <parent link="frame" />
+        <child link="Prop_CCW_2" />
+        <origin xyz="-0.054 -0.036 0.016" rpy="0 0 0" />
+    </joint>
+
+    <!-- Back-right motor: Prop_CW -->
+    <joint name="prop_cw_br_joint" type="fixed">
+        <parent link="frame" />
+        <child link="Prop_CW" />
+        <origin xyz="0.056 -0.036 0.016" rpy="0 0 0" />
+    </joint>
+
+    <!-- Front-left motor: Prop_CW_2 -->
+    <joint name="prop_cw_2_fl_joint" type="fixed">
+        <parent link="frame" />
+        <child link="Prop_CW_2" />
+        <origin xyz="-0.059 0.059 0.016" rpy="0 0 0" />
+    </joint>
+
+</robot>

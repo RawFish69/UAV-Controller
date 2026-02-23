@@ -1,0 +1,38 @@
+metadata:
+  description: >
+    Single source of truth for lr_drone prop joint positions, mesh offsets, and
+    simplified frame collision geometry shared by the preview URDF variants and
+    the mission-capable controlled SDF model.
+  units: meters
+
+frame_collision:
+  center_xyz_m: [0.00066, 0.03174, 0.0125]
+  box_size_xyz_m: [0.11, 0.12, 0.025]
+
+controlled_sim:
+  # `frame_fixed` keeps CAD prop visuals rigidly attached to the frame in the controlled Gazebo model
+  # while rotor links/joints remain available for multicopter plugins. `rotor_link` restores spinning visuals.
+  prop_visual_mode: rotor_link
+
+rotors:
+  prop_ccw_fr_joint:
+    child_link: Prop_CCW
+    motor_xyz_m: [0.061, 0.059, 0.016]
+    mesh_origin_xyz_m: [-1.786667014835495e-06, -2.535607082419229e-06, -0.0031594707677591286]
+    mesh_origin_rpy_rad: [0.0, 0.0, 0.0]
+  prop_ccw_2_bl_joint:
+    child_link: Prop_CCW_2
+    motor_xyz_m: [-0.054, -0.036, 0.016]
+    mesh_origin_xyz_m: [-1.7866670148345366e-06, -2.5356070824216653e-06, -0.003159470767759129]
+    mesh_origin_rpy_rad: [0.0, 0.0, 0.0]
+  prop_cw_br_joint:
+    child_link: Prop_CW
+    motor_xyz_m: [0.056, -0.036, 0.016]
+    mesh_origin_xyz_m: [-0.09258758687542626, -1.588095178977313e-06, -0.0031596521295678345]
+    mesh_origin_rpy_rad: [0.0, 0.0, 0.0]
+  prop_cw_2_fl_joint:
+    child_link: Prop_CW_2
+    motor_xyz_m: [-0.059, 0.059, 0.016]
+    # Front-left: centered mesh origin (Prop_CW_2.stl differs from Prop_CW.stl)
+    mesh_origin_xyz_m: [0.0, 0.0, -0.003159652129567827]
+    mesh_origin_rpy_rad: [0.0, 0.0, 0.0]

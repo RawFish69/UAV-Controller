@@ -98,7 +98,8 @@ def _astar_2d(
 
     def edge_free(p1: np.ndarray, p2: np.ndarray) -> bool:
         """Check if edge between two points is collision-free."""
-        steps = max(2, int(np.ceil(np.linalg.norm(p2 - p1) / res)))
+        check_res = min(0.3, float(res))
+        steps = max(2, int(np.ceil(np.linalg.norm(p2 - p1) / check_res)))
         for s in np.linspace(0.0, 1.0, steps):
             p = (1.0 - s) * p1 + s * p2
             if is_point_in_collision(p, obstacles, inflation=inflation):
@@ -230,8 +231,9 @@ def _rrt_2d(
         return p_from + direction / dist * step_size
 
     def collision_free(p_from: np.ndarray, p_to: np.ndarray) -> bool:
-        # Check a few intermediate points
-        steps = max(2, int(np.ceil(np.linalg.norm(p_to - p_from) / (step_size / 2.0))))
+        # Check a few intermediate points with fine resolution
+        check_dist = min(0.3, max(step_size / 2.0, 0.1))
+        steps = max(2, int(np.ceil(np.linalg.norm(p_to - p_from) / check_dist)))
         for s in np.linspace(0.0, 1.0, steps):
             p = (1.0 - s) * p_from + s * p_to
             if is_point_in_collision(p, obstacles, inflation=inflation):
@@ -311,7 +313,8 @@ def _rrt_star_2d(
         return p_from + direction / dist * step_size
 
     def collision_free(p_from: np.ndarray, p_to: np.ndarray) -> bool:
-        steps = max(2, int(np.ceil(np.linalg.norm(p_to - p_from) / max(step_size / 2.0, 1e-6))))
+        check_dist = min(0.3, max(step_size / 2.0, 0.1))
+        steps = max(2, int(np.ceil(np.linalg.norm(p_to - p_from) / check_dist)))
         for s in np.linspace(0.0, 1.0, steps):
             p = (1.0 - s) * p_from + s * p_to
             if is_point_in_collision(p, obstacles, inflation=inflation):

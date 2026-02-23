@@ -172,15 +172,12 @@ class GroundStationKeyboardTeleopNode(Node):
 
     def _print_help(self) -> None:
         help_text = (
-            "\nKeyboard Teleop (focus terminal)\n"
-            "  Move: arrows=pitch/roll (mapped to x/y velocity), q/e=+/-yaw_rate\n"
-            "  Throttle: space=up, f=down  (Shift-alone is not detectable in terminal teleop)\n"
-            "  Reset: z=zero all, x=zero horizontal, c=zero vertical+yaw\n"
-            "  Scale: +/- adjusts command increment scale\n"
-            "  Modes: m=manual, h=hover, t=takeoff, g=land, i=idle\n"
-            "  Arm: u=arm, j=disarm\n"
-            "  Planning: o=offboard, p=onboard\n"
-            "  Toggle: v=manual_override on/off\n"
+            "\nKeyboard Teleop (focus terminal) — same as README\n"
+            "  w/s: +/- X velocity   a/d: +/- Y velocity   r/f: +/- Z velocity\n"
+            "  q/e: +/- yaw rate    space: zero all commands\n"
+            "  z=zero all, x=zero horizontal, c=zero vertical+yaw   Scale: +/- \n"
+            "  u/j: arm / disarm    m/h/t/g/i: manual / hover / takeoff / land / idle\n"
+            "  o/p: offboard / onboard planning   v: toggle manual_override\n"
             "  Quit: ESC or Ctrl-C\n"
         )
         print(help_text, flush=True)
@@ -210,18 +207,21 @@ class GroundStationKeyboardTeleopNode(Node):
         dv_z = float(self.args.vz_step) * self.scale
         dyaw = float(self.args.yaw_step) * self.scale
 
-        if ch == "<UP>":
+        # WASD + R/F per README: w/s = X, a/d = Y, r/f = Z, space = zero all
+        if k == "w":
             self.vx += dv_xy
-        elif ch == "<DOWN>":
+        elif k == "s":
             self.vx -= dv_xy
-        elif ch == "<RIGHT>":
-            self.vy += dv_xy
-        elif ch == "<LEFT>":
+        elif k == "a":
             self.vy -= dv_xy
-        elif k == " ":
+        elif k == "d":
+            self.vy += dv_xy
+        elif k == "r":
             self.vz += dv_z
         elif k == "f":
             self.vz -= dv_z
+        elif k == " ":
+            self.vx = self.vy = self.vz = self.yaw_rate = 0.0
         elif k == "q":
             self.yaw_rate += dyaw
         elif k == "e":
