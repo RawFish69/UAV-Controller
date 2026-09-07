@@ -223,6 +223,14 @@ def run_simulation(cfg_norm: NormalizedSimConfig) -> SimulationResult:
             f"with matching command kinds."
         )
 
+    if backend.command_kind != airframe.capabilities.command_kind:
+        raise ValueError(
+            f"Backend '{backend_name}' consumes {backend.command_kind.name} control targets, "
+            f"but airframe '{airframe_name}' ({airframe.name}) accepts "
+            f"{airframe.capabilities.command_kind.name}. Pick a backend/airframe pair "
+            f"with matching command kinds."
+        )
+
     initial_cfg = dict(cfg_norm.initial_state_cfg)
     initial_velocity = np.asarray(initial_cfg.get("velocity_mps", [0.0, 0.0, 0.0]), dtype=float)
     if initial_velocity.shape != (3,):

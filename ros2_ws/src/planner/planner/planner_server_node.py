@@ -1,6 +1,6 @@
 import rclpy
-from drone_msgs.msg import MissionStatus, Trajectory, Waypoint
-from drone_msgs.srv import PlanPath
+from uav_msgs.msg import MissionStatus, Trajectory, Waypoint
+from uav_msgs.srv import PlanPath
 from geometry_msgs.msg import Point
 from geometry_msgs.msg import Quaternion
 from rclpy.node import Node

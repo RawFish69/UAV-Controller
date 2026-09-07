@@ -330,7 +330,9 @@ ros2 launch mavlink_bridge real_hardware.launch.py
 ros2 launch mavlink_bridge real_hardware.launch.py \
     mavlink_bridge_params_file:=/path/to/my_vehicle.yaml
 
-# SITL / UDP via the older hw_bridge adapter
+# For SITL, prefer mavlink_bridge with a UDP connection_url
+# (copy mavlink_bridge_default.yaml and set connection_url: udp:127.0.0.1:14540).
+# The hw_bridge adapter below is the legacy/deprecated path.
 ros2 launch hw_bridge hw_px4.launch.py mavlink_url:=udpin:0.0.0.0:14540
 ```
 
@@ -426,7 +428,7 @@ The host-side live dashboard is `tools/gps_dashboard.py` (see `tools/GPS_DASHBOA
 | `ros2_ws/src/sim_fast` | Python | Headless simulation bringup |
 | `ros2_ws/src/sim_gazebo` | Python | Gazebo Sim bringup and assets |
 | `ros2_ws/src/uav_algorithms` | Python | Shared algorithms / planning API helpers |
-| `ros2_ws/src/drone_msgs` | ROS msgs/srvs | Command, telemetry, mission, planner interfaces |
+| `ros2_ws/src/uav_msgs` | ROS msgs/srvs | Command, telemetry, mission, planner interfaces |
 | `ros2_ws/src/terrain_generator` | Python | Terrain + obstacles (forest/mountains/plains) |
 | `sim_py` | Python | Standalone planner/controller/dynamics/visualization |
 | `firmware/espnow` | ESP32 | ESP-NOW TX/RX firmware + protocol bridging |
@@ -440,14 +442,14 @@ The host-side live dashboard is `tools/gps_dashboard.py` (see `tools/GPS_DASHBOA
 
 The current ROS2 Gazebo/fast-sim stack uses the `/uav/...` namespace by default.
 
-- `/uav/command` (`drone_msgs/msg/Command`)
-- `/uav/mission` (`drone_msgs/msg/Trajectory`)
-- `/uav/telemetry` (`drone_msgs/msg/Telemetry`)
-- `/uav/mission_status` (`drone_msgs/msg/MissionStatus`)
+- `/uav/command` (`uav_msgs/msg/Command`)
+- `/uav/mission` (`uav_msgs/msg/Trajectory`)
+- `/uav/telemetry` (`uav_msgs/msg/Telemetry`)
+- `/uav/mission_status` (`uav_msgs/msg/MissionStatus`)
 - `/uav/backend/cmd_twist` (`geometry_msgs/msg/Twist`)
 - `/uav/backend/enable` (`std_msgs/msg/Bool`)
 - `/uav/backend/odom` (`nav_msgs/msg/Odometry`)
-- `/uav/backend/telemetry_raw` (`drone_msgs/msg/Telemetry`)
+- `/uav/backend/telemetry_raw` (`uav_msgs/msg/Telemetry`)
 - `/uav/hw/imu` (`sensor_msgs/msg/Imu`)
 - `/uav/hw/baro` (`std_msgs/msg/Float64`)
 - `/uav/hw/gps` (`sensor_msgs/msg/NavSatFix`)

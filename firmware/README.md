@@ -10,6 +10,8 @@ independent PlatformIO project with its own `platformio.ini`, built with
 | [`elrs/`](elrs/) | ExpressLRS-compatible TX/RX for autonomous flight — computer sends CRSF over UART to TX, RX emits CRSF to the FC | SX1280 2.4 GHz FLRC |
 | [`lora/`](lora/) | Point-to-point LoRa template for long-range, low-rate telemetry or a backup command channel | SX1276/SX1278/RFM9x (433/868/915 MHz) |
 | [`gps/`](gps/) | GPS bring-up and telemetry module (NMEA + PMTK + UBX) | UART to GPS module |
+| [`twin_wings/`](twin_wings/) | Twin Motor Flying Wing firmware: 2 motors through ESCs, 2 elevon servos, optional IMU/GPS | ESC/servo PWM |
+| [`single_wing/`](single_wing/) | Single Motor Flying Wing firmware: 1 motor through ESC, elevon/aileron/elevator servos, optional IMU/GPS | ESC/servo PWM |
 
 Host-side tools that talk to these boards over serial live in [`../tools/`](../tools/).
 
@@ -30,6 +32,22 @@ Environment names are defined per project — see each project's `platformio.ini
 and README.
 
 A containerized PlatformIO toolchain is available: see [`../docker/README.md`](../docker/README.md).
+
+To build every firmware environment in one pass:
+
+```bash
+bash scripts/build_firmware.sh
+```
+
+The current firmware target matrix is:
+
+| Project | Environments |
+|---------|--------------|
+| `twin_wings` | `twin_wings_esp32c3`, `twin_wings_esp32`, `twin_wings_f411`, `twin_wings_f405` |
+| `single_wing` | `single_wing_esp32c3`, `single_wing_esp32`, `single_wing_f411`, `single_wing_f405` |
+| `elrs` | `elrs_tx`, `elrs_rx` |
+| `lora` | `lora_433`, `lora_868`, `lora_915` |
+| `espnow` | `transmitter`, `receiver` |
 
 ## Airframe support
 

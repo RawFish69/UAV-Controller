@@ -52,15 +52,18 @@ you want e.g. a long-range/low-rate preset vs. a short-range/high-rate one.
 
 ## Extending this into a real link
 
-This template only sends a tiny heartbeat struct (node ID, counter,
-uptime). To build your own protocol on top:
+The heartbeat now uses a small `LoraFrame` format in `src/lora_protocol.*`:
 
-1. Replace `HeartbeatPacket` in `src/main.cpp` with your own packed
-   struct (telemetry fields, command fields, etc.) — keep it under the
-   LoRa payload size limit (~255 bytes, much less in practice at higher
-   spreading factors).
-2. If you need request/response instead of open-loop heartbeats, add a
-   packet-type byte and branch on it in `handleReceivedPacket()`.
-3. Consider adding a simple CRC/sequence-number check if packet loss on
-   your link needs to be detected by the application layer (LoRa's own
-   CRC only catches corruption, not implicit loss of retries you may add).
+```text
+magic(1) | version(1) | type(1) | nodeId(1) | sequence(4) |
+payloadLength(2) | payload(<=64) | crc16(2)
+```
+
+The application-layer CRC catches corruption independently of RadioLib, and the
+sequence number lets you detect missing packets. A `LORA_PKT_TELEMETRY` frame
+builder/parser also exists (`loraBuildTelemetry` + `LoraTelemetryPayload`), so a
+node can send voltage/RSSI/link-quality/uptime. To add commands:
+
+1. Add a `LORA_PKT_*` type in `src/lora_protocol.h` (or use `LORA_PKT_COMMAND`).
+2. Add a builder/parser for the payload in `src/lora_protocol.cpp`.
+3. Branch on `frame.type` in `handleReceivedPacket()`.

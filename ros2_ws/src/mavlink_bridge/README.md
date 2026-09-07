@@ -77,6 +77,22 @@ ros2 launch mavlink_bridge real_hardware.launch.py \
 - The FC's own RC failsafe/kill-switch is independent of this bridge and
   remains your primary safety net.
 
+## ArduPlane fixed-wing airspeed-nav path
+
+For fixed-wing airframes set `flight_stack: ardupilot` and `airframe_name:
+twin_wing` in the params file. The node then subscribes to
+`airspeed_nav_topic` (default `/uav/backend/cmd_airspeed_nav`) using
+`uav_msgs/AirspeedNav`. A valid message is converted to an ArduPlane body-frame
+GUIDED velocity setpoint:
+
+```text
+forward = airspeed_mps
+vertical = -climb_rate_mps
+yaw_rate = 9.81 * tan(bank_rad) / airspeed_mps   # clamped
+```
+
+The existing `/uav/backend/cmd_twist` multirotor path remains unchanged.
+
 ## Pre-flight checklist
 
 1. **Unit tests**: `colcon test --packages-select mavlink_bridge` (pure-math

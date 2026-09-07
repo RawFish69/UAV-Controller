@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 rclpy = pytest.importorskip("rclpy")
-from drone_msgs.msg import Command, MissionStatus, Telemetry, Trajectory, Waypoint
+from uav_msgs.msg import Command, MissionStatus, Telemetry, Trajectory, Waypoint
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 

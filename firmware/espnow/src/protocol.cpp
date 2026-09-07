@@ -7,6 +7,8 @@
 static uint8_t sequenceNumber = 0;
 static uint32_t lastPacketReceivedMs = 0;
 static uint32_t lastPacketSentMs = 0;
+static uint8_t lastSequence = 0;
+static bool haveLastSequence = false;
 
 // RC channel storage
 static uint16_t currentRcChannels[16] = {
@@ -61,6 +63,7 @@ bool CustomProtocol_Init(bool isTx, const uint8_t* peerMac) {
   stats.timeoutErrors = 0;
   stats.lastPacketMs = 0;
   stats.linkActive = false;
+  stats.duplicates = 0;
   
   memset(&lastTelemetry, 0, sizeof(lastTelemetry));
   
@@ -136,6 +139,15 @@ bool CustomProtocol_ParsePacket(const uint8_t* data, size_t len, const uint8_t* 
     stats.crcErrors++;
     return false;
   }
+
+  // Drop duplicate deliveries by sequence number. The sender uses one global
+  // sequence counter, so the same sequence means the same logical frame.
+  if (haveLastSequence && pkt->sequence == lastSequence) {
+    stats.duplicates++;
+    return true;
+  }
+  lastSequence = pkt->sequence;
+  haveLastSequence = true;
   
   // Parse packet
   switch (pkt->packetType) {

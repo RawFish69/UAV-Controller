@@ -6,4 +6,4 @@ float32 collision_inflation_m
 ---
 bool success
 string message
-drone_msgs/Trajectory trajectory
+uav_msgs/Trajectory trajectory

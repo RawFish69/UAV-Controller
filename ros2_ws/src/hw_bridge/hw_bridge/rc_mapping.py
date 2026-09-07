@@ -8,6 +8,8 @@ Yaw is NOT inverted here — the TX firmware inverts it (see docs/HARDWARE.md).
 import math
 from dataclasses import dataclass
 
+from aerial_kit.registry import create_airframe, register_builtin_components
+
 
 @dataclass(frozen=True)
 class RcMapParams:
@@ -26,6 +28,30 @@ class RcSticks:
     pitch: float
     yaw: float
     throttle: float
+
+
+def params_from_airframe(
+    airframe_name: str,
+    *,
+    kv_xy: float = 0.5,
+    hover_throttle: float = 0.5,
+    kz: float = 0.2,
+    throttle_min: float = 0.05,
+    throttle_max: float = 0.95,
+    max_yaw_rate_rps: float = 1.5,
+) -> RcMapParams:
+    """Build RC mapping limits from the selected aerial_kit airframe profile."""
+    register_builtin_components()
+    airframe = create_airframe(airframe_name)
+    return RcMapParams(
+        kv_xy=kv_xy,
+        max_tilt_deg=airframe.capabilities.max_bank_deg,
+        hover_throttle=hover_throttle,
+        kz=kz,
+        throttle_min=throttle_min,
+        throttle_max=throttle_max,
+        max_yaw_rate_rps=max_yaw_rate_rps,
+    )
 
 
 def _clamp(v: float, lo: float, hi: float) -> float:

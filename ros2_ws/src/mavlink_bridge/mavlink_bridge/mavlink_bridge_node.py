@@ -4,10 +4,11 @@ import time
 import rclpy
 from rclpy.node import Node
 
+from aerial_kit.registry import create_airframe, register_builtin_components
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Bool
-from drone_msgs.msg import Telemetry
+from uav_msgs.msg import AirspeedNav, Telemetry
 
 from pymavlink import mavutil
 
@@ -45,6 +46,7 @@ class MavlinkBridgeNode(Node):
         self.declare_parameter('backend_enable_topic', '/uav/backend/enable')
         self.declare_parameter('backend_odom_topic', '/uav/backend/odom')
         self.declare_parameter('telemetry_raw_topic', '/uav/backend/telemetry_raw')
+        self.declare_parameter('airspeed_nav_topic', '/uav/backend/cmd_airspeed_nav')
 
         self.declare_parameter('setpoint_rate_hz', 20.0)
         self.declare_parameter('command_timeout_sec', 0.5)
@@ -52,6 +54,8 @@ class MavlinkBridgeNode(Node):
         self.declare_parameter('disarm_max_speed_mps', 0.3)
         self.declare_parameter('disarm_max_altitude_m', 0.3)
         self.declare_parameter('yaw_rate_sign', -1.0)
+        self.declare_parameter('airframe_name', 'quad')
+        self.declare_parameter('max_yaw_rate_rps', 1.5)
 
         self.connection_url = self.get_parameter('connection_url').value
         self.baud = int(self.get_parameter('baud').value)
@@ -67,20 +71,31 @@ class MavlinkBridgeNode(Node):
         self.disarm_max_altitude_m = float(self.get_parameter('disarm_max_altitude_m').value)
         self.yaw_rate_sign = float(self.get_parameter('yaw_rate_sign').value)
 
+        register_builtin_components()
+        airframe_name = str(self.get_parameter('airframe_name').value)
+        airframe = create_airframe(airframe_name)
+        self.max_airspeed_mps = airframe.capabilities.max_airspeed_mps
+        self.max_climb_rate_mps = airframe.capabilities.max_climb_rate_mps
+        self.max_yaw_rate_rps = float(self.get_parameter('max_yaw_rate_rps').value)
+
         backend_cmd_topic = self.get_parameter('backend_cmd_topic').value
         backend_enable_topic = self.get_parameter('backend_enable_topic').value
         backend_odom_topic = self.get_parameter('backend_odom_topic').value
         telemetry_raw_topic = self.get_parameter('telemetry_raw_topic').value
+        airspeed_nav_topic = self.get_parameter('airspeed_nav_topic').value
         setpoint_rate_hz = float(self.get_parameter('setpoint_rate_hz').value)
 
         self.pub_odom = self.create_publisher(Odometry, backend_odom_topic, 20)
         self.pub_telemetry_raw = self.create_publisher(Telemetry, telemetry_raw_topic, 20)
 
         self.create_subscription(Twist, backend_cmd_topic, self._on_cmd_twist, 20)
+        self.create_subscription(AirspeedNav, airspeed_nav_topic, self._on_cmd_airspeed_nav, 10)
         self.create_subscription(Bool, backend_enable_topic, self._on_enable, 10)
 
         self._last_cmd_twist = Twist()
+        self._last_cmd_airspeed_nav = AirspeedNav()
         self._last_cmd_time = None
+        self._last_airspeed_nav_time = None
         self._enabled = False
         self._disarm_pending = False
         self._arm_ack_command_id = None
@@ -114,6 +129,10 @@ class MavlinkBridgeNode(Node):
         self._last_cmd_twist = msg
         self._last_cmd_time = time.monotonic()
 
+    def _on_cmd_airspeed_nav(self, msg):
+        self._last_cmd_airspeed_nav = msg
+        self._last_airspeed_nav_time = time.monotonic()
+
     def _on_enable(self, msg):
         want_enabled = bool(msg.data)
         if want_enabled and not self._enabled:
@@ -139,6 +158,11 @@ class MavlinkBridgeNode(Node):
         if not self._enabled:
             return
 
+        if self.flight_stack == 'ardupilot' and self._last_airspeed_nav_time is not None:
+            if (now - self._last_airspeed_nav_time) <= self.command_timeout_sec:
+                self._send_airspeed_nav(self._last_cmd_airspeed_nav)
+                return
+
         twist = self._last_cmd_twist
         stale = (
             self._last_cmd_time is None
@@ -154,6 +178,15 @@ class MavlinkBridgeNode(Node):
             vz_mav = -twist.linear.z
             yaw_rate = self.yaw_rate_sign * twist.angular.z
 
+        # Clamp to the selected airframe's capability envelope.
+        horizontal_speed = math.sqrt(vx_mav * vx_mav + vy_mav * vy_mav)
+        if horizontal_speed > self.max_airspeed_mps:
+            scale = self.max_airspeed_mps / max(horizontal_speed, 1e-6)
+            vx_mav *= scale
+            vy_mav *= scale
+        vz_mav = max(-self.max_climb_rate_mps, min(self.max_climb_rate_mps, vz_mav))
+        yaw_rate = max(-self.max_yaw_rate_rps, min(self.max_yaw_rate_rps, yaw_rate))
+
         self.mav.mav.set_position_target_local_ned_send(
             0,
             self.target_system,
@@ -162,6 +195,41 @@ class MavlinkBridgeNode(Node):
             _SETPOINT_TYPE_MASK,
             0.0, 0.0, 0.0,
             vx_mav, vy_mav, vz_mav,
+            0.0, 0.0, 0.0,
+            0.0, yaw_rate,
+        )
+
+    def _send_airspeed_nav(self, msg):
+        if not msg.valid:
+            return
+
+        airspeed = max(0.0, float(msg.airspeed_mps))
+        bank = float(msg.bank_rad)
+        climb = float(msg.climb_rate_mps)
+
+        # Coordinated-turn yaw-rate estimate, then clamp to the airframe envelope.
+        yaw_rate = 9.81 * math.tan(bank) / max(airspeed, 1.0)
+        yaw_rate = max(-self.max_yaw_rate_rps, min(self.max_yaw_rate_rps, yaw_rate))
+
+        # ArduPlane GUIDED body-frame velocity setpoint. Position/accel ignored;
+        # forward airspeed and vertical climb are kept, plus bank-derived yaw rate.
+        mask = (
+            mavutil.mavlink.POSITION_TARGET_TYPEMASK_X_IGNORE
+            | mavutil.mavlink.POSITION_TARGET_TYPEMASK_Y_IGNORE
+            | mavutil.mavlink.POSITION_TARGET_TYPEMASK_Z_IGNORE
+            | mavutil.mavlink.POSITION_TARGET_TYPEMASK_AX_IGNORE
+            | mavutil.mavlink.POSITION_TARGET_TYPEMASK_AY_IGNORE
+            | mavutil.mavlink.POSITION_TARGET_TYPEMASK_AZ_IGNORE
+            | mavutil.mavlink.POSITION_TARGET_TYPEMASK_YAW_IGNORE
+        )
+        self.mav.mav.set_position_target_local_ned_send(
+            0,
+            self.target_system,
+            self.target_component,
+            mavutil.mavlink.MAV_FRAME_BODY_NED,
+            mask,
+            0.0, 0.0, 0.0,
+            airspeed, 0.0, -climb,
             0.0, 0.0, 0.0,
             0.0, yaw_rate,
         )

@@ -2,8 +2,8 @@ import math
 from typing import Optional
 
 import rclpy
-from drone_msgs.msg import Command, MissionStatus, Telemetry, Trajectory
-from drone_msgs.srv import PlanPath
+from uav_msgs.msg import Command, MissionStatus, Telemetry, Trajectory
+from uav_msgs.srv import PlanPath
 from geometry_msgs.msg import Twist
 from rclpy.node import Node
 

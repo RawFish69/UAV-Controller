@@ -28,7 +28,12 @@ def _quat_from_rpy(roll: float, pitch: float, yaw: float) -> tuple[float, float,
 
 
 class Px4BackendAdapterNode(Node):
-    """PX4 offboard adapter: backend cmd+enable <-> MAVLink setpoints and odometry."""
+    """Legacy PX4 SITL/UDP adapter.
+
+    Superseded by `mavlink_bridge` for both real hardware and SITL. This node is kept
+    only for the older UDP/SITL workflow; new work should use
+    `ros2_ws/src/mavlink_bridge` instead.
+    """
 
     def __init__(self) -> None:
         super().__init__("px4_backend_adapter_node")

@@ -121,6 +121,40 @@ jobs:
           /tmp/smoke/bin/aerial-kit-sim --help > /dev/null
           echo "console script OK"
 
+      - name: Verify firmware and repo files are not shipped
+        run: |
+          python - <<'PY'
+          import glob, sys, tarfile, zipfile
+
+          forbidden = {
+              "firmware",
+              "ros2_ws",
+              "tools",
+              "docker",
+              "scripts",
+              "plans",
+              "assets",
+              "docs",
+          }
+          bad = []
+
+          for wheel in glob.glob("dist/*.whl"):
+              with zipfile.ZipFile(wheel) as archive:
+                  top = {name.split("/", 1)[0] for name in archive.namelist()}
+              bad.extend(sorted(top & forbidden))
+
+          for sdist in glob.glob("dist/*.tar.gz"):
+              with tarfile.open(sdist) as archive:
+                  top = {name.split("/", 1)[0] for name in archive.getnames()}
+              bad.extend(sorted(top & forbidden))
+
+          if bad:
+              print("Forbidden top-level entries in distribution:", sorted(set(bad)))
+              sys.exit(1)
+
+          print("Distribution contains no firmware/ROS/repo-only directories.")
+          PY
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 

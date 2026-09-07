@@ -7,7 +7,7 @@ from geometry_msgs.msg import Twist
 from rclpy.node import Node
 from std_msgs.msg import Bool
 
-from hw_bridge.rc_mapping import RcMapParams, RcSticks, neutral_sticks, velocity_to_rc
+from hw_bridge.rc_mapping import RcMapParams, RcSticks, neutral_sticks, params_from_airframe, velocity_to_rc
 
 _PACKET_FMT = "<ffffI"  # roll, pitch, yaw (-1..1), throttle (0..1), timestamp_ms
 
@@ -23,6 +23,7 @@ class CrsfBackendAdapterNode(Node):
         self.declare_parameter("udp_port", 9000)
         self.declare_parameter("send_rate_hz", 50.0)
         self.declare_parameter("command_timeout_sec", 0.5)
+        self.declare_parameter("airframe_name", "quad")
         # rc mapping params
         self.declare_parameter("kv_xy", 0.5)
         self.declare_parameter("max_tilt_deg", 25.0)
@@ -38,9 +39,10 @@ class CrsfBackendAdapterNode(Node):
         self.udp_port = int(g("udp_port").value)
         self.command_timeout_sec = float(g("command_timeout_sec").value)
         self.disarmed_throttle = float(g("disarmed_throttle").value)
-        self.params = RcMapParams(
+        airframe_name = str(g("airframe_name").value)
+        self.params = params_from_airframe(
+            airframe_name,
             kv_xy=float(g("kv_xy").value),
-            max_tilt_deg=float(g("max_tilt_deg").value),
             hover_throttle=float(g("hover_throttle").value),
             kz=float(g("kz").value),
             throttle_min=float(g("throttle_min").value),

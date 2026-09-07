@@ -2,7 +2,7 @@ import math
 import time
 
 import rclpy
-from drone_msgs.msg import MissionStatus, Telemetry
+from uav_msgs.msg import MissionStatus, Telemetry
 from rclpy.node import Node
 
 

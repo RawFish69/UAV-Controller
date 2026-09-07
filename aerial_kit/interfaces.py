@@ -45,6 +45,10 @@ class Controller(ABC):
 class DynamicsBackend(ABC):
     """State propagation backend for the simulator."""
 
+    # Which CommandKind this backend consumes. Defaults to ACCEL (point-mass and
+    # multirotor backends); fixed-wing backends override this to AIRSPEED_NAV.
+    command_kind: CommandKind = CommandKind.ACCEL
+
     @abstractmethod
     def reset(
         self,
@@ -70,4 +74,3 @@ class DynamicsBackend(ABC):
         terrain_clearance: float,
     ) -> None:
         """Optional post-step bounds/terrain constraints (default no-op)."""
-

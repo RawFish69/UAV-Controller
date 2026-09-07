@@ -2,7 +2,14 @@
 
 from .basic import LQRController, MPCController, PIDController
 from .fixed_wing import AttitudeGains, FixedWingL1TECSController, body_axis_pitch_bank
-from .position import lqr_gain_double_integrator, lqr_position_control, mpc_position_control, pid_position_control
+from .minimum_snap import minimum_snap_trajectory
+from .position import (
+    lqr_gain_double_integrator,
+    lqr_position_control,
+    mpc_position_control,
+    mppi_position_control,
+    pid_position_control,
+)
 
 __all__ = [
     "PIDController",
@@ -15,4 +22,6 @@ __all__ = [
     "lqr_gain_double_integrator",
     "lqr_position_control",
     "mpc_position_control",
+    "mppi_position_control",
+    "minimum_snap_trajectory",
 ]

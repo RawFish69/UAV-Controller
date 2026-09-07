@@ -15,12 +15,14 @@ from typing import Any, Mapping
 import numpy as np
 
 from ..core.interfaces import DynamicsBackend
-from ..core.types import ControlTarget, SimState
+from ..core.types import CommandKind, ControlTarget, SimState
 from aerial_kit.dynamics.fixed_wing import FixedWingDynamics, FixedWingParams, level_attitude_quat
 
 
 class FixedWingBackend(DynamicsBackend):
     """6-DOF twin-wing backend driven by actuator commands, not accel_cmd."""
+
+    command_kind = CommandKind.AIRSPEED_NAV
 
     def __init__(self) -> None:
         self._dyn: FixedWingDynamics | None = None

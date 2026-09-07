@@ -12,6 +12,9 @@ mavlink_bridge_node:
     backend_enable_topic: "/uav/backend/enable"
     backend_odom_topic: "/uav/backend/odom"
     telemetry_raw_topic: "/uav/backend/telemetry_raw"
+    airspeed_nav_topic: "/uav/backend/cmd_airspeed_nav"
+    airframe_name: "quad"
+    max_yaw_rate_rps: 1.5
 
     setpoint_rate_hz: 20.0
     command_timeout_sec: 0.5

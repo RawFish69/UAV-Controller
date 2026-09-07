@@ -336,6 +336,11 @@ TX (IMU+Joystick) → ESP-NOW → RX → Protocol Bridge → FC
 - Automatic pairing
 - Link quality monitoring
 
+### Wire protocol
+
+See [`PROTOCOL.md`](PROTOCOL.md) for the exact frame layout, CRC, packet types, and
+failsafe behavior.
+
 **Output:**
 - Universal protocol bridge
 - All 5 protocols in one file

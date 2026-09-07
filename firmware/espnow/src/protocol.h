@@ -61,6 +61,7 @@ typedef struct {
   bool linkActive;
   uint32_t sendFailures;
   float packetLossPercent;
+  uint32_t duplicates;
 } ProtocolStats;
 
 bool CustomProtocol_Init(bool isTx = true, const uint8_t* peerMac = nullptr);

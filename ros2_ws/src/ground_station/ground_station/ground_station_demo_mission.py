@@ -2,8 +2,8 @@ import time
 from typing import Optional
 
 import rclpy
-from drone_msgs.msg import Command, MissionStatus, Telemetry, Trajectory, Waypoint
-from drone_msgs.srv import PlanPath
+from uav_msgs.msg import Command, MissionStatus, Telemetry, Trajectory, Waypoint
+from uav_msgs.srv import PlanPath
 from geometry_msgs.msg import Quaternion
 from rclpy.node import Node
 from visualization_msgs.msg import Marker, MarkerArray

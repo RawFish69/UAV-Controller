@@ -3,7 +3,7 @@ from typing import Optional
 
 import rclpy
 from air_unit.rtl import RTL_ARRIVED, RtlParams, rtl_command
-from drone_msgs.msg import Command, Telemetry
+from uav_msgs.msg import Command, Telemetry
 from geometry_msgs.msg import Twist
 from rclpy.node import Node
 from std_msgs.msg import Bool

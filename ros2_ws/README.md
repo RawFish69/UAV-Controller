@@ -3,7 +3,7 @@
 This workspace contains the rebuilt ROS2 + Gazebo simulation stack for `aerial-kit`.
 
 Status:
-- `drone_msgs` interfaces (commands / telemetry / mission / planner service)
+- `uav_msgs` interfaces (commands / telemetry / mission / planner service)
 - Gazebo Sim bringup with upstream X3 multicopter velocity-control plugins
 - ROS2 `ros_gz_bridge` topic bridging
 - Ground station CLI / monitor / demo mission nodes
@@ -481,14 +481,14 @@ flowchart LR
 
 ## Core Topics
 
-- `/uav/command` (`drone_msgs/msg/Command`)
-- `/uav/mission` (`drone_msgs/msg/Trajectory`)
-- `/uav/telemetry` (`drone_msgs/msg/Telemetry`)
-- `/uav/mission_status` (`drone_msgs/msg/MissionStatus`)
+- `/uav/command` (`uav_msgs/msg/Command`)
+- `/uav/mission` (`uav_msgs/msg/Trajectory`)
+- `/uav/telemetry` (`uav_msgs/msg/Telemetry`)
+- `/uav/mission_status` (`uav_msgs/msg/MissionStatus`)
 - `/uav/backend/cmd_twist` (`geometry_msgs/msg/Twist`)
 - `/uav/backend/enable` (`std_msgs/msg/Bool`)
 - `/uav/backend/odom` (`nav_msgs/msg/Odometry`)
-- `/uav/backend/telemetry_raw` (`drone_msgs/msg/Telemetry`)
+- `/uav/backend/telemetry_raw` (`uav_msgs/msg/Telemetry`)
 
 Gazebo bridged topics:
 - `/model/x3/odometry`

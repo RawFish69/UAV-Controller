@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(drone_msgs)
+project(uav_msgs)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -17,6 +17,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Command.msg"
   "msg/Telemetry.msg"
   "msg/MissionStatus.msg"
+  "msg/AirspeedNav.msg"
   "srv/PlanPath.srv"
   DEPENDENCIES std_msgs geometry_msgs
 )

@@ -2,7 +2,7 @@ import argparse
 import time
 
 import rclpy
-from drone_msgs.msg import Command
+from uav_msgs.msg import Command
 from geometry_msgs.msg import Twist
 from rclpy.node import Node
 

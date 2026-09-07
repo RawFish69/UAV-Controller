@@ -65,3 +65,5 @@ Default: 500 Hz packet rate (`ELRS_PACKET_INTERVAL_US = 2000`), hop every 2 pack
 
 - This is a minimal ELRS-compatible stack for aerial-kit. It is not a full ExpressLRS fork; sync word uses RadioLib defaults so it will not bind with standard ExpressLRS hardware.
 - For production you may want to add telemetry (link stats, battery) and/or vendored SX1280 driver with custom sync word from UID for full ExpressLRS compatibility.
+- Upstream reference: ExpressLRS 4.0.x is the current major line (4.0.1 as of mid-2026). The protocol features there (modes, telemetry, binding UX, unified targets) are intentionally out of scope for this minimal link until real flight testing shows a need. Do not claim 4.0 compatibility.
+- RadioLib compatibility: `radio_sx1280.cpp` is updated for RadioLib 6.x (current `lib_deps` resolves to 6.6.0). It uses the newer `SX128x` FLRC constants and `getIrqStatus()` rather than the removed `isTxDone`/`isRxDone`/`setPacketLength` APIs.

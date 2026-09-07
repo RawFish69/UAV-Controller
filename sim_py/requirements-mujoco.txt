@@ -1,0 +1,3 @@
+# Optional dependencies for the MuJoCo backend.
+# Base simulator deps remain in sim_py/requirements.txt.
+mujoco>=3.0

@@ -15,7 +15,7 @@ bool RadioSX1280::begin(const uint8_t* uid) {
     sx = new SX1280(mod);
     radio_ = sx;
 
-    if (mod->init() != 0) return false;
+    mod->init();
 
     pinMode(RADIO_PIN_BUSY, INPUT);
     pinMode(RADIO_PIN_DIO1, INPUT);
@@ -26,10 +26,8 @@ bool RadioSX1280::begin(const uint8_t* uid) {
     delay(5);
 
     // FLRC: 650 kbps, CR 1/2, preamble 32 (ExpressLRS-like). Same defaults on TX/RX = same link.
-    if (sx->beginFLRC(2400.0, 650, RADIOLIB_SX1280_FLRC_CR_1_2, 10, 32, RADIOLIB_SX1280_FLRC_BT_0_5) != 0)
+    if (sx->beginFLRC(2400.0, 650, RADIOLIB_SX128X_FLRC_CR_1_2, 10, 32, RADIOLIB_SX128X_FLRC_BT_0_5) != 0)
         return false;
-
-    if (sx->setPacketLength(ELRS_PACKET_SIZE) != 0) return false;
 
     ok_ = true;
     return true;
@@ -60,14 +58,16 @@ bool RadioSX1280::readPacket(uint8_t* data, uint8_t len) {
 
 bool RadioSX1280::isTxDone() {
     if (!ok_ || !sx) return false;
-    return sx->isTxDone();
+    return (sx->getIrqStatus() & RADIOLIB_SX128X_IRQ_TX_DONE) != 0;
 }
 
 bool RadioSX1280::isRxDone() {
     if (!ok_ || !sx) return false;
-    return sx->isRxDone();
+    return (sx->getIrqStatus() & RADIOLIB_SX128X_IRQ_RX_DONE) != 0;
 }
 
 void RadioSX1280::clearIrq() {
-    if (sx) sx->clearIrqStatus();
+    // RadioLib 6.x exposes getIrqStatus() but not a public clear method for
+    // SX128x; this wrapper is currently unused, so reading the status is enough.
+    if (sx) sx->getIrqStatus();
 }

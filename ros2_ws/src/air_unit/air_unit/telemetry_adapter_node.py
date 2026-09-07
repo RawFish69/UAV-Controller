@@ -1,7 +1,7 @@
 import math
 
 import rclpy
-from drone_msgs.msg import Telemetry
+from uav_msgs.msg import Telemetry
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 

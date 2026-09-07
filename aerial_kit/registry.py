@@ -96,12 +96,13 @@ def register_builtin_components() -> None:
 
     from .airframes.fixed_wing import TwinWingAirframe
     from .airframes.multirotor import MultirotorAirframe
-    from .controllers.basic import LQRController, MPCController, PIDController
+    from .controllers.basic import LQRController, MPCController, MPPIController, PIDController
     from .controllers.fixed_wing import FixedWingL1TECSController
 
     register_controller("pid", PIDController)
     register_controller("lqr", LQRController)
     register_controller("mpc", MPCController)
+    register_controller("mppi", MPPIController)
     register_controller("l1_tecs", FixedWingL1TECSController)
 
     register_airframe("quad", lambda: MultirotorAirframe(arms=4, layout="x"))

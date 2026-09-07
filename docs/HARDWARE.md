@@ -37,8 +37,11 @@ Launch paths:
 
 ```bash
 ros2 launch hw_bridge hw_crsf.launch.py udp_host:=192.168.4.1
-ros2 launch hw_bridge hw_px4.launch.py mavlink_url:=udpin:0.0.0.0:14540
+ros2 launch mavlink_bridge real_hardware.launch.py
 ```
+
+> The old `ros2 launch hw_bridge hw_px4.launch.py` is legacy/deprecated; use
+> `mavlink_bridge` for PX4 and ArduPilot (see `ros2_ws/src/mavlink_bridge/README.md`).
 
 > Betaflight path assumes **Angle mode** (stick commands represent tilt angles).
 > Tune `hover_throttle` and mapping gains before real flight.

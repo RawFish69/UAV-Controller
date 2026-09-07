@@ -13,14 +13,9 @@
 #include <Arduino.h>
 #include <RadioLib.h>
 #include "config.h"
+#include "lora_protocol.h"
 
 SX1278 radio = new Module(LORA_PIN_NSS, LORA_PIN_DIO0, LORA_PIN_RST, RADIOLIB_NC);
-
-struct __attribute__((packed)) HeartbeatPacket {
-  uint8_t nodeId;
-  uint32_t counter;
-  uint32_t uptimeMs;
-};
 
 volatile bool packetReceivedFlag = false;
 
@@ -35,17 +30,18 @@ uint32_t txCounter = 0;
 unsigned long lastHeartbeatMs = 0;
 
 void sendHeartbeat() {
-  HeartbeatPacket packet{LORA_NODE_ID, txCounter++, millis()};
+  LoraFrame frame;
+  loraBuildHeartbeat(frame, LORA_NODE_ID, txCounter++, millis());
 
   // transmit() is blocking and reuses the DIO0 line for TX-done, which
   // would otherwise also fire our RX interrupt handler -- detach it for
   // the duration of the send so a completed transmit isn't mistaken for
   // a received packet.
   radio.clearPacketReceivedAction();
-  int state = radio.transmit(reinterpret_cast<uint8_t*>(&packet), sizeof(packet));
+  int state = radio.transmit(reinterpret_cast<uint8_t*>(&frame), sizeof(frame));
   if (state == RADIOLIB_ERR_NONE) {
-    Serial.printf("[LoRa] TX node=%u counter=%lu\n", packet.nodeId,
-                  static_cast<unsigned long>(packet.counter));
+    Serial.printf("[LoRa] TX node=%u counter=%lu\n", frame.nodeId,
+                  static_cast<unsigned long>(frame.sequence));
   } else {
     Serial.printf("[LoRa] TX failed, code %d\n", state);
   }
@@ -58,13 +54,33 @@ void sendHeartbeat() {
 void handleReceivedPacket() {
   packetReceivedFlag = false;
 
-  HeartbeatPacket packet{};
-  int state = radio.readData(reinterpret_cast<uint8_t*>(&packet), sizeof(packet));
+  LoraFrame frame;
+  memset(&frame, 0, sizeof(frame));
+  size_t receivedLength = radio.getPacketLength();
+  int state = radio.readData(reinterpret_cast<uint8_t*>(&frame), sizeof(frame));
 
   if (state == RADIOLIB_ERR_NONE) {
+    if (!loraValidate(frame, receivedLength)) {
+      Serial.println("[LoRa] RX invalid frame");
+      return;
+    }
+
+    uint32_t uptimeMs = 0;
+    if (frame.type == LORA_PKT_HEARTBEAT && frame.payloadLength >= sizeof(uptimeMs)) {
+      memcpy(&uptimeMs, frame.payload, sizeof(uptimeMs));
+    } else if (frame.type == LORA_PKT_TELEMETRY &&
+               frame.payloadLength >= sizeof(LoraTelemetryPayload)) {
+      LoraTelemetryPayload telemetry{};
+      memcpy(&telemetry, frame.payload, sizeof(telemetry));
+      Serial.printf("[LoRa] TELEM node=%u voltage=%.2fV rssi=%d link=%u%% uptime=%lums\n",
+                    frame.nodeId, telemetry.voltage, telemetry.rssi,
+                    telemetry.linkQuality, static_cast<unsigned long>(telemetry.uptimeMs));
+      return;
+    }
+
     Serial.printf("[LoRa] RX node=%u counter=%lu uptime=%lums  RSSI=%.1fdBm SNR=%.1fdB\n",
-                  packet.nodeId, static_cast<unsigned long>(packet.counter),
-                  static_cast<unsigned long>(packet.uptimeMs), radio.getRSSI(), radio.getSNR());
+                  frame.nodeId, static_cast<unsigned long>(frame.sequence),
+                  static_cast<unsigned long>(uptimeMs), radio.getRSSI(), radio.getSNR());
   } else if (state == RADIOLIB_ERR_CRC_MISMATCH) {
     Serial.println("[LoRa] RX CRC error");
   } else {

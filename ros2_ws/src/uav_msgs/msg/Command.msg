@@ -16,6 +16,6 @@ uint8 planning_mode
 bool arm
 bool disarm
 bool manual_override
-drone_msgs/ManualControl manual
+uav_msgs/ManualControl manual
 geometry_msgs/Twist velocity_setpoint
 string source_id

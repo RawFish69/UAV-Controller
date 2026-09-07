@@ -113,6 +113,17 @@ class TestRunnerIntegration(unittest.TestCase):
 
             CONTROLLERS.pop("_test_wrench_only_pid", None)
 
+    def test_fixedwing_airframe_rejects_pointmass_backend(self) -> None:
+        """Startup check must also catch a backend/airframe command-kind mismatch,
+        not only controller/airframe mismatches."""
+        with self.assertRaises(ValueError) as e:
+            run_simulation(self._base_cfg("l1_tecs", airframe_name="twin_wing"))
+        msg = str(e.exception)
+        self.assertIn("pointmass", msg)
+        self.assertIn("ACCEL", msg)
+        self.assertIn("AIRSPEED_NAV", msg)
+        self.assertIn("twin_wing", msg)
+
     def test_l1_tecs_twin_wing_fixedwing_dispatch_runs_end_to_end(self) -> None:
         """CommandKind.AIRSPEED_NAV dispatch: runner.py must route the l1_tecs
         controller's Wrench through TwinWingAirframe.allocate() into
